@@ -1,0 +1,10 @@
+packages:
+  - 'frontend'
+  - 'Backend'
+allowBuilds:
+  esbuild: true
+  "@tailwindcss/oxide": true
+  '@firebase/util': true
+  protobufjs: true
+minimumReleaseAgeExclude:
+  - '@types/react@18.3.31'
