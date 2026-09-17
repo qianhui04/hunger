@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User as SupabaseUser } from "@supabase/supabase-js";
+import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 export interface CustomUser {
-    uid: string;
+    id: string;
     email: string;
     name?: string;
     role: 'super_admin' | 'admin';
@@ -14,56 +13,40 @@ interface AuthContextType {
     user: CustomUser | null;
     loading: boolean;
     logout: () => Promise<void>;
-    refreshUser: () => Promise<void>;
+    refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
     user: null,
     loading: true,
     logout: async () => { },
-    refreshUser: async () => { },
+    refreshUser: async () => false,
 });
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<CustomUser | null>(null);
     const [loading, setLoading] = useState(true);
 
-    // Fetch or automatically initialize profile details from Supabase 'admin_profiles'
-    const fetchUserProfile = async (supabaseUser: SupabaseUser): Promise<CustomUser | null> => {
-        const email = supabaseUser.email || "";
-        if (!email) return null;
+    const fetchUserProfile = async (authUser: any): Promise<CustomUser | null> => {
 
         try {
+            console.log("AUTH CONTEXT USER ID:", authUser.id);
+
             let { data, error } = await supabase
                 .from('admin_profiles')
                 .select('*')
-                .eq('email', email)
+                .eq('id', authUser.id)
                 .maybeSingle();
 
             if (error) throw error;
 
-            // Create fallback profile entry if auth record exists but table entry is missing
             if (!data) {
-                const newProfile = {
-                    id: supabaseUser.id,
-                    email: email,
-                    name: supabaseUser.user_metadata?.full_name || email.split('@')[0],
-                    role: 'admin',
-                    status: 'pending',
-                };
-
-                const { data: insertedData, error: insertError } = await supabase
-                    .from('admin_profiles')
-                    .insert([newProfile])
-                    .select()
-                    .single();
-
-                if (insertError) throw insertError;
-                data = insertedData;
+                return null;
             }
+            console.log("AUTH CONTEXT USER:", data);
 
             return {
-                uid: supabaseUser.id,
+                id: data.id,
                 email: data.email,
                 name: data.name,
                 role: data.role as 'admin' | 'super_admin',
@@ -71,28 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
 
         } catch (err) {
-            console.warn("Error fetching Supabase user profile:", err);
-
-            // Fallback for offline or local cache checks
-            const localProfiles = JSON.parse(localStorage.getItem('admin_profiles') || '[]');
-            const found = localProfiles.find((p: any) => p.email.toLowerCase() === email.toLowerCase());
-
-            if (found) {
-                return {
-                    uid: supabaseUser.id,
-                    email,
-                    name: found.name || email.split('@')[0],
-                    role: found.role || 'admin',
-                    status: found.status || 'pending',
-                };
-            }
-
+            console.error("Failed to fetch admin profile:", err);
             return null;
         }
     };
 
-    // Authorize user based on application status (only 'approved' accounts enter)
     const handleProfileAuthorization = async (profile: CustomUser | null): Promise<boolean> => {
+        console.log("PROFILE:", profile);
+
         if (!profile) {
             setUser(null);
             return false;
@@ -103,8 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return true;
         }
 
-        // Force sign out if status is pending or rejected
-        await supabase.auth.signOut();
         setUser(null);
 
         if (profile.status === 'pending') {
@@ -115,23 +82,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
     };
 
-    // Manually re-fetch profile and authorization details
-    const refreshUser = async () => {
+    const refreshUser = async (): Promise<boolean> => {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-            const profile = await fetchUserProfile(session.user);
-            await handleProfileAuthorization(profile);
+
+        if (!session?.user) {
+            setUser(null);
+            return false;
         }
+
+        const profile = await fetchUserProfile(session.user);
+
+        return await handleProfileAuthorization(profile);
     };
 
-    // Terminate active session
     const logout = async () => {
         try {
-            await supabase.auth.signOut();
-        } catch (err) {
-            console.error("Error logging out from Supabase Auth:", err);
-        } finally {
+            console.log("LOGOUT: before signOut");
+
+            const { data: before } = await supabase.auth.getSession();
+
+            console.log("SESSION BEFORE LOGOUT:", before.session);
+
+            const { error } = await supabase.auth.signOut({
+                scope: 'local',
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            const { data: after } = await supabase.auth.getSession();
+
+            console.log("SESSION AFTER LOGOUT:", after.session);
+
             setUser(null);
+
+        } catch (err) {
+            console.error("Logout failed:", err);
+            throw err;
         }
     };
 
@@ -142,15 +130,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const initializeAuth = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
+
                 if (session?.user) {
                     const profile = await fetchUserProfile(session.user);
                     if (mounted) {
                         await handleProfileAuthorization(profile);
                     }
                 }
+
             } catch (err) {
                 console.error("Auth initialization error:", err);
             } finally {
+                console.log("AUTH INITIALIZATION FINISHED");
                 if (mounted) setLoading(false);
             }
         };
@@ -160,9 +151,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 2. Real-time Auth State Change Observer (fires on sign in, sign out, token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (event === 'SIGNED_IN' && session?.user) {
-                const profile = await fetchUserProfile(session.user);
-                await handleProfileAuthorization(profile);
-                setLoading(false);
+                // setTimeout(async () => {
+                //     const profile = await fetchUserProfile(session.user);
+
+                //     if (mounted) {
+                //         await handleProfileAuthorization(profile);
+                //     }
+                // }, 0);
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setLoading(false);
@@ -185,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {
-        throw new Error("useAuth must be used within an AuthProvider");
+        throw new Error("useAuth must be used within AuthProvider");
     }
     return context;
 };

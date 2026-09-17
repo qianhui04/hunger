@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { signInWithEmailAndPassword, getAuth, sendPasswordResetEmail } from 'firebase/auth';
+import { useAuth } from '../context/AuthContext';
+
 
 export function Login() {
   const navigate = useNavigate();
-  const auth = getAuth();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -16,9 +17,7 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // ==========================================
   // FORGOT PASSWORD MODAL LOCAL STATES
-  // ==========================================
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [modalLoading, setModalLoading] = useState(false);
@@ -39,49 +38,45 @@ export function Login() {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-      if (firebaseUser) {
-        const { data: profile, error: supabaseError } = await supabase
-          .from('admin_profiles')
-          .select('*')
-          .eq('id', firebaseUser.uid)
-          .maybeSingle();
+      console.log("LOGIN STEP 1", data.user, error);
 
-        if (supabaseError || !profile) {
-          setErrorMessage('Access Denied. Profile not found in administration registry.');
-          setIsLoading(false);
-          return;
-        }
-
-        if (profile.status !== 'approved') {
-          setErrorMessage(`Access Denied. Your status is currently listed as '${profile.status}'. Please wait for Super Admin approval.`);
-          setIsLoading(false);
-          return;
-        }
-
-        navigate('/dashboard');
+      if (error) {
+        throw error;
       }
+
+      const user = data.user;
+
+      console.log("LOGIN STEP 2", user);
+
+      if (!user) {
+        setErrorMessage('Unable to retrieve user information.');
+        return;
+      }
+
+      const authorized = await refreshUser();
+
+      if (authorized) {
+        navigate('/dashboard', { replace: true });
+      }
+
+      console.log("LOGIN STEP 3");
     } catch (err: any) {
       console.error("Login error detailed:", err);
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setErrorMessage('Invalid login credentials. Please check your email or password.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setErrorMessage("This account is temporarily locked due to too many rapid login attempts. Please wait a few minutes before trying again.");
-      } else if (err.code === 'ERR_INTERNET_DISCONNECTED') {
-        setErrorMessage('No internet connection detected. Please check your workspace router.');
-      } else {
-        setErrorMessage(err.message || 'An unexpected error occurred during system authentication.');
-      }
+
+      setErrorMessage(
+        err.message || 'An unexpected error occurred during system authentication.'
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ==========================================
   // FORGOT PASSWORD SUBMIT ENGINE
-  // ==========================================
   const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (modalLoading) return;
@@ -117,16 +112,18 @@ export function Login() {
       }
 
       // 3. Handshake with Firebase to dispatch reset payload
-      await sendPasswordResetEmail(auth, targetEmail, {
-        url: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
-      setModalMessage('If the email is registered, a reset link has been sent.');
+      if (error) throw error;
+
+      setModalMessage('Password reset email sent!');
     } catch (error: any) {
       console.error("Forgot password flow error:", error);
-      // Exception Flow- Database Connection / Query Failure or Core Auth crash
+
       setModalError('An error occurred while connecting to the verification query services.');
-    } {
+    } finally {
       setModalLoading(false);
     }
   };

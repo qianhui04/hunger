@@ -98,7 +98,7 @@ exports.login = async (req, res) => {
             return res.status(404).json({ error: "Access Denied. Profile not found in administration registry." });
         }
 
-        /* * 🛠️ DEVELOPMENT TEMPORARY BYPASS LOGIC:
+        /* *  DEVELOPMENT TEMPORARY BYPASS LOGIC:
          * Allows 'pending' or other statuses to log in immediately without breaking local UI flow
          */
         if (profile.status !== 'approved' && profile.status !== 'pending') {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 export function Register() {
   const navigate = useNavigate();
@@ -54,46 +55,43 @@ export function Register() {
     setIsLoading(true);
 
     try {
-      // 🚀 UNIFIED MVC NETWORK ROUTE HANDSHAKE
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            studentId: formData.studentId,
+          },
         },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          studentId: formData.studentId,
-          password: formData.password,
-        }),
       });
 
-      const payload = await response.json();
-
-      if (!response.ok) {
-        throw new Error(payload.error || 'Registration failed at backend runtime cluster.');
+      if (error) {
+        throw error;
       }
 
-      // Sync local fallback storage for dashboard redundancy rules
-      const localProfiles = JSON.parse(localStorage.getItem('admin_profiles') || '[]');
-      const filtered = localProfiles.filter(
-        (p: any) => (p.email || '').toLowerCase() !== formData.email.toLowerCase()
-      );
+      const user = data.user;
 
-      filtered.push({
-        uid: payload.uid,
-        email: formData.email.toLowerCase(),
-        name: formData.name,
-        studentId: formData.studentId,
-        status: 'pending',
-        role: 'admin',
-        savedToCloud: true,
-        createdAt: new Date().toISOString(),
-      });
-      localStorage.setItem('admin_profiles', JSON.stringify(filtered));
+      if (!user) {
+        throw new Error('Unable to create user account.');
+      }
 
-      alert(payload.message || 'Registration successful! Awaiting Super Admin verification approval.');
+      const { error: profileError } = await supabase
+        .from('admin_profiles')
+        .insert({
+          id: user.id,
+          email: formData.email.toLowerCase(),
+          name: formData.name,
+          student_id: formData.studentId,
+        });
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      alert('Registration successful! Awaiting Super Admin verification approval.');
       navigate('/login');
+
     } catch (err: any) {
       console.error('MVC pipeline registration execution failed:', err);
       setErrorMessage(err.message || 'An error occurred during registration. Please try again.');

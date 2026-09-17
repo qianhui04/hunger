@@ -1,60 +1,30 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     CheckCircle,
     XCircle,
     UserCheck,
-    Clock,
     Search,
     Mail,
     Calendar,
     ShieldAlert,
     Loader2,
     AlertCircle,
-    ThumbsUp,
-    SlidersHorizontal
+    ThumbsUp
 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 // Define layout parameters for the mock entries
 interface AdminRequest {
     id: string;
-    full_name: string;
+    name: string;
     email: string;
-    requested_role: 'Admin' | 'Super Admin';
+    role: 'admin';
     created_at: string;
-    reason: string;
 }
-
-// Hardcoded Mock Database Records matching UM academic profiles
-const HARDCODED_REQUESTS: AdminRequest[] = [
-    {
-        id: 'req-001',
-        full_name: 'Alex Mercer',
-        email: 'alex.mercer@siswa.um.edu.my',
-        requested_role: 'Admin',
-        created_at: '2026-06-09T08:30:00Z',
-        reason: 'Requesting dashboard access to oversee the GPS food drop-off telemetry streams and update spatial density mappings for our faculty cluster.'
-    },
-    {
-        id: 'req-002',
-        full_name: 'Dr. Siti Aminah',
-        email: 'siti.aminah@um.edu.my',
-        requested_role: 'Super Admin',
-        created_at: '2026-06-08T14:15:00Z',
-        reason: 'Faculty coordinator for Zero Hunger UM initiative. Need comprehensive configuration rights to approve lower-tier administrator registrations.'
-    },
-    {
-        id: 'req-003',
-        full_name: 'Khairul Anwar',
-        email: 'khairul.anwar@siswa.um.edu.my',
-        requested_role: 'Admin',
-        created_at: '2026-06-07T11:05:00Z',
-        reason: 'Volunteering as a logistics dispatcher. Need access to manage the food listing schedules and clear inactive system notifications.'
-    }
-];
 
 export default function AdminApproval() {
     // State initialization utilizing our hardcoded array
-    const [requests, setRequests] = useState<AdminRequest[]>(HARDCODED_REQUESTS);
+    const [requests, setRequests] = useState<AdminRequest[]>([]);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -80,10 +50,43 @@ export default function AdminApproval() {
         }, 900);
     };
 
+    useEffect(() => {
+        const pendingApproval = async () => {
+            const { data, error } = await supabase
+                .from('admin_profiles')
+                .select('*')
+                .eq('status', 'pending');
+
+            if (error) {
+                console.error("Error fetching pending approvals:", error);
+                return;
+            }
+
+            console.log(data);
+            setRequests(data ?? []);
+        };
+
+        pendingApproval();
+
+    }, []);
+
+    const handleApproval = async (id: string) => {
+        const { data, error } = await supabase
+            .from('admin_profiles')
+            .update({ status: 'approved' })
+            .eq('id', id)
+            .select();
+
+        if (error) {
+            console.error("Error updating approval status:", error);
+            return;
+        }
+    }
+
     // Client Side Filter Utility Component
     const filteredRequests = useMemo(() => {
         return requests.filter(req =>
-            req.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            req.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             req.email.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [requests, searchTerm]);
@@ -117,8 +120,8 @@ export default function AdminApproval() {
             {/* FR-70 Notification Display Banner */}
             {notification && (
                 <div className={`p-4 rounded-xl border flex items-start gap-3 text-sm transition-all animate-fade-in ${notification.type === 'success'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : 'bg-rose-50 border-rose-200 text-rose-800'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
                     }`}>
                     {notification.type === 'success' ? (
                         <CheckCircle className="shrink-0 text-emerald-600 mt-0.5" size={18} />
@@ -149,26 +152,12 @@ export default function AdminApproval() {
                                 {/* Upper Badge & Identity Rows */}
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                     <div>
-                                        <h3 className="font-bold text-gray-900 text-base tracking-tight">{req.full_name}</h3>
+                                        <h3 className="font-bold text-gray-900 text-base tracking-tight">{req.name}</h3>
                                         <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5 font-medium">
                                             <Mail size={13} className="text-gray-400" />
                                             <span>{req.email}</span>
                                         </div>
                                     </div>
-
-                                    {/* Structural Privilege Badge */}
-                                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-md border flex items-center gap-1 ${req.requested_role === 'Super Admin'
-                                            ? 'bg-purple-50 text-purple-700 border-purple-100'
-                                            : 'bg-blue-50 text-blue-700 border-blue-100'
-                                        }`}>
-                                        <ShieldAlert size={12} /> {req.requested_role}
-                                    </span>
-                                </div>
-
-                                {/* Justification Text Context Layer */}
-                                <div className="bg-gray-50 border-l-2 border-gray-300 rounded-r-lg p-3.5 text-xs text-gray-600 font-normal leading-relaxed my-4">
-                                    <span className="font-semibold text-gray-500 block text-[10px] uppercase tracking-wider mb-1">Applicant Justification Statement:</span>
-                                    "{req.reason}"
                                 </div>
                             </div>
 
@@ -183,7 +172,7 @@ export default function AdminApproval() {
                                     {/* Reject Request Action Button Element */}
                                     <button
                                         disabled={processingId !== null}
-                                        onClick={() => handleDecision(req.id, req.full_name, 'rejected')}
+                                        onClick={() => handleDecision(req.id, req.name, 'rejected')}
                                         className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 disabled:opacity-40 px-3.5 py-2 rounded-xl transition-all cursor-pointer border border-rose-100 active:scale-95"
                                     >
                                         <XCircle size={15} /> Reject
@@ -192,7 +181,7 @@ export default function AdminApproval() {
                                     {/* Approve Request Action Button Element */}
                                     <button
                                         disabled={processingId !== null}
-                                        onClick={() => handleDecision(req.id, req.full_name, 'approved')}
+                                        onClick={() => handleDecision(req.id, req.name, 'approved')}
                                         className="flex items-center gap-1.5 text-xs font-bold text-white bg-[#2E7D32] hover:bg-[#1B5E20] disabled:bg-gray-400 px-4 py-2 rounded-xl transition-all shadow-sm shadow-emerald-700/10 cursor-pointer active:scale-95"
                                     >
                                         {processingId === req.id ? (

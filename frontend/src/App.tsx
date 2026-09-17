@@ -13,7 +13,7 @@ import AdminApproval from './pages/AdminApproval';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ResetPassword } from './pages/ResetPassword';
-import { Loader2 } from 'lucide-react'; // Added for professional UI synchronization
+import { Loader2 } from 'lucide-react';
 
 function RootRedirect() {
   const { user, loading } = useAuth();
@@ -21,59 +21,91 @@ function RootRedirect() {
   if (loading) {
     return (
       <div className="flex flex-col gap-3 items-center h-screen w-screen justify-center bg-gray-50">
-        <Loader2 className="animate-spin text-[#2E7D32]" size={32} />
-        <div className="text-gray-500 font-medium text-sm">Synchronizing system session...</div>
+        <Loader2
+          className="animate-spin text-[#2E7D32]"
+          size={32}
+        />
+
+        <div className="text-gray-500 font-medium text-sm">
+          Synchronizing system session...
+        </div>
       </div>
     );
   }
 
-  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+  return user
+    ? <Navigate to="/dashboard" replace />
+    : <Navigate to="/login" replace />;
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <Routes>
-          {/* Unauthenticated Global Gates (Completely isolated to prevent input state wipes) */}
+
+          {/* Public Routes */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 
-          {/* Secure Administration Workspaces */}
+          {/* Protected Routes */}
           <Route
             element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin']}>
-                <Layout>
-                  <Routes>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/food-listings" element={<FoodListings />} />
-                    <Route path="/user-activity" element={<UserActivity />} />
-                    <Route path="/location-activity" element={<LocationActivity />} />
-                    <Route path="/reports" element={<Reports />} />
-                    <Route path="/abuse-safety" element={<AbuseSafety />} />
-                    <Route path="/admin-approval" element={<AdminApproval />} />
-                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                  </Routes>
-                </Layout>
-              </ProtectedRoute>
+              <ProtectedRoute
+                allowedRoles={['admin', 'super_admin']}
+              />
             }
           >
-            {/* Flattened structural layout paths inside your core layout wrap context */}
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/food-listings" element={<FoodListings />} />
-            <Route path="/user-activity" element={<UserActivity />} />
-            <Route path="/location-activity" element={<LocationActivity />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/abuse-safety" element={<AbuseSafety />} />
-            <Route path="/admin-approval" element={<AdminApproval />} />
+            <Route element={<Layout />}>
+
+              <Route
+                path="dashboard"
+                element={<Dashboard />}
+              />
+
+              <Route
+                path="food-listings"
+                element={<FoodListings />}
+              />
+
+              <Route
+                path="user-activity"
+                element={<UserActivity />}
+              />
+
+              <Route
+                path="location-activity"
+                element={<LocationActivity />}
+              />
+
+              <Route
+                path="reports"
+                element={<Reports />}
+              />
+
+              <Route
+                path="abuse-safety"
+                element={<AbuseSafety />}
+              />
+
+              <Route
+                path="admin-approval"
+                element={<AdminApproval />}
+              />
+
+            </Route>
           </Route>
 
-          {/* Global Missing Route Handler Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Unknown route */}
+          <Route
+            path="*"
+            element={<Navigate to="/" replace />}
+          />
+
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

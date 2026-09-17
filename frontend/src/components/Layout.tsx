@@ -1,5 +1,5 @@
-import { ReactNode, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
   ListOrdered,
@@ -14,11 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-interface LayoutProps {
-  children: ReactNode;
-}
-
-export function Layout({ children }: LayoutProps) {
+export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,13 +44,13 @@ export function Layout({ children }: LayoutProps) {
     setIsLoggingOut(true);
     try {
       await logout();
+      setShowSignOutModal(false);
+      setSidebarOpen(false);
+      navigate('/login', { replace: true });
     } catch (err) {
       console.error("Sign out error:", err);
     } finally {
       setIsLoggingOut(false);
-      setShowSignOutModal(false);
-      setSidebarOpen(false);
-      navigate('/login', { replace: true });
     }
   };
 
@@ -144,7 +140,7 @@ export function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <main className="lg:ml-64">
         <div className="px-4 py-8 lg:px-8">
-          {children}
+          <Outlet />
         </div>
       </main>
 
