@@ -1,36 +1,108 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, Ban, User, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const topUsers = [
-  { id: 1, name: 'Sarah Chen', email: 'sarah.chen@um.edu.my', role: 'Student', shared: 45, claimed: 32, points: 770, avatar: 'S' },
-  { id: 2, name: 'Ahmad Ibrahim', email: 'ahmad.ibrahim@um.edu.my', role: 'Student', shared: 38, claimed: 28, points: 660, avatar: 'A' },
-  { id: 3, name: 'Mei Lin', email: 'mei.lin@um.edu.my', role: 'Staff', shared: 42, claimed: 15, points: 570, avatar: 'M' },
-  { id: 4, name: 'Raj Kumar', email: 'raj.kumar@um.edu.my', role: 'Student', shared: 35, claimed: 25, points: 600, avatar: 'R' },
-  { id: 5, name: 'Lisa Wong', email: 'lisa.wong@um.edu.my', role: 'Student', shared: 30, claimed: 30, points: 600, avatar: 'L' },
-  { id: 6, name: 'David Lee', email: 'david.lee@um.edu.my', role: 'Staff', shared: 28, claimed: 22, points: 500, avatar: 'D' },
-  { id: 7, name: 'Emma Tan', email: 'emma.tan@um.edu.my', role: 'Student', shared: 25, claimed: 35, points: 600, avatar: 'E' },
-  { id: 8, name: 'Prof. Ahmad', email: 'prof.ahmad@um.edu.my', role: 'Staff', shared: 32, claimed: 10, points: 420, avatar: 'P' },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const activityData = [
-  { month: 'Jan', providers: 120, claimers: 350 },
-  { month: 'Feb', providers: 135, claimers: 380 },
-  { month: 'Mar', providers: 148, claimers: 420 },
-  { month: 'Apr', providers: 162, claimers: 450 },
-  { month: 'May', providers: 178, claimers: 485 },
-];
+interface UserActivityRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: 'student' | 'staff';
+  subRoles: string[];
+  food_shared: number;
+  food_claimed: number;
+}
+
+interface UserActivityResponse {
+  stats: {
+    totalUsers: number;
+    totalProviders: number;
+    totalReceivers: number;
+    totalClaims: number;
+  };
+
+  users: UserActivityRecord[];
+
+  monthlyActivity?: {
+    month: string;
+    foodListed: number;
+    foodClaimed: number;
+  }[];
+}
 
 export function UserActivity() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTab, setSelectedTab] = useState<'ranking' | 'providers' | 'claimers'>('ranking');
+  const [selectedTab, setSelectedTab] = useState<'providers' | 'claimers'>('providers');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserActivityRecord[]>([]);
+  const [stats, setStats] =
+    useState({
+      totalUsers: 0,
+      totalProviders: 0,
+      totalReceivers: 0,
+      totalClaims: 0
+    });
+  const [activityData, setActivityData] = useState<UserActivityResponse['monthlyActivity']>([]);
 
-  const filteredUsers = topUsers.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchUserActivity = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-activity`);
+      if (!response.ok) throw new Error(`Server status: ${response.status}`);
 
-  const handleRestrictUser = (userId: number, userName: string) => {
+      const data: UserActivityResponse = await response.json();
+      console.log('USER ACTIVITY DATA:', data);
+      setUsers(data.users || []);
+
+      setStats(
+        data.stats || {
+          totalUsers: 0,
+          activeProviders: 0,
+          activeReceivers: 0,
+          totalClaims: 0
+        }
+      );
+      setActivityData(data.monthlyActivity || []);
+    } catch (err: any) {
+      console.error('Frontend Sync Fetch Error:', err);
+      setError(err.message || 'Failed to sync with central API metrics backend module.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserActivity();
+  }, []);
+
+  const filteredUsers = users.filter((user) => {
+    if (selectedTab === 'providers') {
+      return user.subRoles.includes('provider');
+    }
+
+    return user.subRoles.includes('receiver');
+
+  })
+    .filter((user) => {
+
+      const search =
+        searchTerm.toLowerCase();
+
+      return (
+        user.name
+          .toLowerCase()
+          .includes(search) ||
+
+        user.email
+          .toLowerCase()
+          .includes(search)
+      );
+    });
+
+  const handleRestrictUser = (userId: string, userName: string) => {
     if (confirm(`Are you sure you want to restrict user "${userName}"?`)) {
       alert(`User ${userName} has been restricted.`);
     }
@@ -50,7 +122,7 @@ export function UserActivity() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-[#9E9E9E]">Total Active Users</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">892</p>
+              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalUsers}</p>
             </div>
             <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
               <User size={24} className="text-[#2E7D32]" />
@@ -62,7 +134,7 @@ export function UserActivity() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-[#9E9E9E]">Active Providers</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">178</p>
+              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalProviders}</p>
             </div>
             <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
               <TrendingUp size={24} className="text-[#66BB6A]" />
@@ -73,8 +145,8 @@ export function UserActivity() {
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-[#9E9E9E]">Active Claimers</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">485</p>
+              <p className="text-sm text-[#9E9E9E]">Active Receivers</p>
+              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalReceivers}</p>
             </div>
             <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
               <Trophy size={24} className="text-[#338A3E]" />
@@ -106,8 +178,8 @@ export function UserActivity() {
             <Tooltip
               contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px' }}
             />
-            <Bar dataKey="providers" fill="#2E7D32" radius={[8, 8, 0, 0]} name="Providers" />
-            <Bar dataKey="claimers" fill="#66BB6A" radius={[8, 8, 0, 0]} name="Claimers" />
+            <Bar dataKey="foodListed" fill="#2E7D32" radius={[8, 8, 0, 0]} name="Providers" />
+            <Bar dataKey="foodClaimed" fill="#66BB6A" radius={[8, 8, 0, 0]} name="Claimers" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -120,8 +192,8 @@ export function UserActivity() {
             <button
               onClick={() => setSelectedTab('providers')}
               className={`px-6 py-3 rounded-lg transition-colors ${selectedTab === 'providers'
-                  ? 'bg-[#E8F5E9] text-[#2E7D32]'
-                  : 'text-[#9E9E9E] hover:bg-[#F5FAF5]'
+                ? 'bg-[#E8F5E9] text-[#2E7D32]'
+                : 'text-[#9E9E9E] hover:bg-[#F5FAF5]'
                 }`}
             >
               Provider Records
@@ -129,8 +201,8 @@ export function UserActivity() {
             <button
               onClick={() => setSelectedTab('claimers')}
               className={`px-6 py-3 rounded-lg transition-colors ${selectedTab === 'claimers'
-                  ? 'bg-[#E8F5E9] text-[#2E7D32]'
-                  : 'text-[#9E9E9E] hover:bg-[#F5FAF5]'
+                ? 'bg-[#E8F5E9] text-[#2E7D32]'
+                : 'text-[#9E9E9E] hover:bg-[#F5FAF5]'
                 }`}
             >
               Receiver Records
@@ -162,7 +234,7 @@ export function UserActivity() {
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Role</th>
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Food Shared</th>
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Food Claimed</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Points</th>
+                {/* <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Points</th> */}
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Actions</th>
               </tr>
             </thead>
@@ -179,9 +251,9 @@ export function UserActivity() {
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
+                      {/* <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
                         <span className="text-[#2E7D32] font-medium">{user.avatar}</span>
-                      </div>
+                      </div> */}
                       <div>
                         <p className="text-sm font-medium text-[#212121]">{user.name}</p>
                         <p className="text-xs text-[#9E9E9E]">{user.email}</p>
@@ -189,16 +261,16 @@ export function UserActivity() {
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'Staff'
-                        ? 'bg-[#FFF3E0] text-[#F57C00]'
-                        : 'bg-[#E8F5E9] text-[#2E7D32]'
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'staff'
+                      ? 'bg-[#FFF3E0] text-[#F57C00]'
+                      : 'bg-[#E8F5E9] text-[#2E7D32]'
                       }`}>
                       {user.role}
                     </span>
                   </td>
-                  <td className="py-4 px-6 text-sm text-[#212121] font-medium">{user.shared}</td>
-                  <td className="py-4 px-6 text-sm text-[#212121] font-medium">{user.claimed}</td>
-                  <td className="py-4 px-6 text-sm text-[#2E7D32] font-semibold">{user.points}</td>
+                  <td className="py-4 px-6 text-sm text-[#212121] font-medium">{user.food_shared}</td>
+                  <td className="py-4 px-6 text-sm text-[#212121] font-medium">{user.food_claimed}</td>
+                  {/* <td className="py-4 px-6 text-sm text-[#2E7D32] font-semibold">{user.points}</td> */}
                   <td className="py-4 px-6">
                     <button
                       onClick={() => handleRestrictUser(user.id, user.name)}

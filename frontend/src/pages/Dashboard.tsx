@@ -33,7 +33,10 @@ export function Dashboard() {
     total_listings: 0,
     pax_distributed: 0,
     food_saved: 0,
-    active_users: 0,
+    total_users: 0,
+    active_listings: 0,
+    available_pax: 0,
+    expiring_soon: 0,
   });
 
   const [chartData, setChartData] = useState<{
@@ -120,15 +123,15 @@ export function Dashboard() {
           color="#2E7D32"
         />
         <StatCard
-          title="Pax Claimed"
+          title="Pax Distributed"
           value={loading ? "..." : error ? "—" : stats.pax_distributed.toLocaleString()}
           icon={User}
-          trend={{ value: 'Portions claimed', isPositive: true }}
+          trend={{ value: 'Portions distributed', isPositive: true }}
           color="#66BB6A"
         />
         <StatCard
-          title="Active Users"
-          value={loading ? "..." : error ? "—" : stats.active_users.toString()}
+          title="Total Users"
+          value={loading ? "..." : error ? "—" : stats.total_users.toString()}
           icon={Users}
           trend={{ value: 'Providers & Receivers', isPositive: true }}
           color="#60AD5E"
@@ -146,72 +149,88 @@ export function Dashboard() {
         <div className='text-center py-20 text-sm text-[#9E9E9E] font-medium'>Calculating Cloud Database Metrics...</div>
       ) : (
         <>
-          {/* Charts Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Weekly Distribution */}
-            <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
-              <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Weekly Food Distribution</h2>
-              <div className="w-full h-[260px] sm:h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData.weeklyActivity} margin={{ left: -20, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
-                    <XAxis dataKey="name" stroke="#9E9E9E" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#9E9E9E" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="value" fill="#2E7D32" radius={[6, 6, 0, 0]} name="Listing Events" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+          {/* TODAY */}
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-[#212121]">Today</h2>
+              <p className="text-sm text-[#9E9E9E] mt-1">
+                Current food availability across campus
+              </p>
             </div>
 
-            {/* Food Type Distribution */}
-            <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
-              <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Food Type Proportions</h2>
-              <div className="w-full h-[260px] sm:h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  {chartData.foodTypeDistribution.length === 0 ? (
-                    <div className='flex items-center justify-center h-full text-sm text-gray-400'>No category entries tracked this week</div>
-                  ) : (
-                    <PieChart>
-                      <Pie
-                        data={chartData.foodTypeDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        dataKey="value"
-                        style={{ fontSize: '11px', fontWeight: '500' }}
-                      >
-                        {chartData.foodTypeDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-          {/* Location Activity */}
-          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Most Active Locations</h2>
-            <div className="w-full h-[280px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                {chartData.locationActivity.length === 0 ? (
-                  <div className='flex items-center justify-center h-full text-sm text-gray-400'>No listings positions tracked this week</div>
-                ) : (
-                  <BarChart data={chartData.locationActivity} layout="vertical" margin={{ left: -10, right: 15 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
-                    <XAxis type="number" stroke="#9E9E9E" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <YAxis dataKey="name" type="category" stroke="#9E9E9E" width={90} tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="value" fill="#66BB6A" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
+              {/* Active Listings */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
+                    <Package size={18} className="text-[#2E7D32]" />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-[#757575]">
+                    Active Listings
+                  </p>
+
+                  <p className="text-3xl font-bold text-[#212121] mt-1">
+                    {loading ? "..." : error ? "—" : stats.active_listings}
+                  </p>
+
+                  <p className="text-xs text-[#9E9E9E] mt-1">
+                    Currently available
+                  </p>
+                </div>
+              </div>
+
+
+              {/* Available Pax */}
+              <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
+                    <Users size={18} className="text-[#2E7D32]" />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-[#757575]">
+                    Available Pax
+                  </p>
+
+                  <p className="text-3xl font-bold text-[#212121] mt-1">
+                    {loading ? "..." : error ? "—" : stats.available_pax}
+                  </p>
+
+                  <p className="text-xs text-[#9E9E9E] mt-1">
+                    Portions remaining
+                  </p>
+                </div>
+              </div>
+
+
+              {/* Expiring Soon */}
+              <div className="bg-white rounded-xl border border-orange-100 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center">
+                    <Clock size={18} className="text-orange-500" />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-[#757575]">
+                    Expiring Soon
+                  </p>
+
+                  <p className="text-3xl font-bold text-[#212121] mt-1">
+                    {loading ? "..." : error ? "—" : stats.expiring_soon}
+                  </p>
+
+                  <p className="text-xs text-orange-500 mt-1">
+                    Ending within 30 minutes
+                  </p>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -277,6 +296,76 @@ export function Dashboard() {
                   </table>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* Charts Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Weekly Distribution */}
+            <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Weekly Food Distribution</h2>
+              <div className="w-full h-[260px] sm:h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData.weeklyActivity} margin={{ left: -20, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
+                    <XAxis dataKey="name" stroke="#9E9E9E" tick={{ fontSize: 11 }} />
+                    <YAxis stroke="#9E9E9E" allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px', fontSize: '12px' }} />
+                    <Bar dataKey="value" fill="#2E7D32" radius={[6, 6, 0, 0]} name="Listing Events" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Food Type Distribution */}
+            <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
+              <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Food Type Proportions</h2>
+              <div className="w-full h-[260px] sm:h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartData.foodTypeDistribution.length === 0 ? (
+                    <div className='flex items-center justify-center h-full text-sm text-gray-400'>No category entries tracked this week</div>
+                  ) : (
+                    <PieChart>
+                      <Pie
+                        data={chartData.foodTypeDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        dataKey="value"
+                        style={{ fontSize: '11px', fontWeight: '500' }}
+                      >
+                        {chartData.foodTypeDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Location Activity */}
+          <div className="bg-white rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Most Active Locations</h2>
+            <div className="w-full h-[280px] sm:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                {chartData.locationActivity.length === 0 ? (
+                  <div className='flex items-center justify-center h-full text-sm text-gray-400'>No listings positions tracked this week</div>
+                ) : (
+                  <BarChart data={chartData.locationActivity} layout="vertical" margin={{ left: -10, right: 15 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
+                    <XAxis type="number" stroke="#9E9E9E" allowDecimals={false} tick={{ fontSize: 11 }} />
+                    <YAxis dataKey="name" type="category" stroke="#9E9E9E" width={90} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px', fontSize: '12px' }} />
+                    <Bar dataKey="value" fill="#66BB6A" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                )}
+              </ResponsiveContainer>
             </div>
           </div>
 

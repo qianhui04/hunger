@@ -27,11 +27,11 @@ interface LocationItem {
 }
 
 interface MetricSet {
-  totalEvents: number;
+  availableEvent: number;
   totalPaxDistributed: number;
-  avgFulfillment: number;
-  avgReservation: number;
-  topHub: string;
+  avgFulfillmentRate: number;
+  avgReservationRate: number;
+  // topHub: string;
 }
 
 function MapResizeTrigger() {
@@ -59,11 +59,11 @@ export function AutoFitBounds({ locations, fallbackCenter }: { locations: Locati
 export function LocationActivity() {
   const [locationData, setLocationData] = useState<LocationItem[]>([]);
   const [metrics, setMetrics] = useState<MetricSet>({
-    totalEvents: 0,
+    availableEvent: 0,
     totalPaxDistributed: 0,
-    avgFulfillment: 0,
-    avgReservation: 0,
-    topHub: 'N/A'
+    avgFulfillmentRate: 0,
+    avgReservationRate: 0,
+    // topHub: 'N/A'
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -76,24 +76,25 @@ export function LocationActivity() {
     async function fetchBackendAnalytics() {
       try {
         setIsLoadingData(true);
-        const queryParams = new URLSearchParams({
-          search: searchTerm,
-          filter: viewFilter
-        }).toString();
-
-        const response = await fetch(`http://localhost:5000/api/locations/analytics?${queryParams}`);
+        const response = await fetch("http://localhost:5000/api/locations/analytics");
         if (!response.ok) throw new Error("API Channel error connection exception");
 
         const payload = await response.json();
-        setLocationData(payload.locations || []);
-
+        setLocationData(payload.locations);
         setMetrics({
-          totalEvents: payload.metrics?.totalEvents || 0,
+          availableEvent: payload.metrics?.availableEvent.length || 0,
           totalPaxDistributed: payload.metrics?.totalPaxDistributed || 0,
-          avgFulfillment: payload.metrics?.avgFulfillment || 0,
-          avgReservation: payload.metrics?.avgReservation || 0,
-          topHub: payload.metrics?.topHub || 'UM Central'
+          avgFulfillmentRate: payload.metrics?.avgFulfillmentRate || 0,
+          avgReservationRate: payload.metrics?.avgReservationRate || 0,
         });
+
+        // const queryParams = new URLSearchParams({
+        //   search: searchTerm,
+        //   filter: viewFilter
+        // }).toString();
+
+        // const response = await fetch(`http://localhost:5000/api/locations/analytics?${queryParams}`);
+        // if (!response.ok) throw new Error("API Channel error connection exception");
       } catch (err) {
         console.error("Error connecting with backend runtime cluster engine:", err);
         setLocationData([]);
@@ -107,7 +108,7 @@ export function LocationActivity() {
     }, 300);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, viewFilter]);
+  }, [searchTerm]);
 
   const fallbackMapFocus = useMemo((): [number, number] => {
     if (locationData.length > 0) return [locationData[0].lat, locationData[0].lng];
@@ -135,9 +136,9 @@ export function LocationActivity() {
       {/* UPGRADED: Scoreboard Cards showing separate tracking metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: 'Active Listings', value: metrics.totalEvents, icon: MapPin, color: 'text-[#2E7D32]', bg: 'bg-[#E8F5E9]' },
-          { title: 'Avg. Reservation Rate', value: `${metrics.avgReservation}%`, icon: BookmarkCheck, color: 'text-[#1565C0]', bg: 'bg-[#E3F2FD]' },
-          { title: 'Avg. Pickup Rate', value: `${metrics.avgFulfillment}%`, icon: Calendar, color: 'text-[#66BB6A]', bg: 'bg-[#E8F5E9]' },
+          { title: 'Active Listings', value: metrics.availableEvent, icon: MapPin, color: 'text-[#2E7D32]', bg: 'bg-[#E8F5E9]' },
+          { title: 'Avg. Reservation Rate', value: `${metrics.avgReservationRate}%`, icon: BookmarkCheck, color: 'text-[#1565C0]', bg: 'bg-[#E3F2FD]' },
+          { title: 'Avg. Pickup Rate', value: `${metrics.avgFulfillmentRate}%`, icon: Calendar, color: 'text-[#66BB6A]', bg: 'bg-[#E8F5E9]' },
           { title: 'Total Volume Distributed', value: (metrics.totalPaxDistributed || 0).toLocaleString(), icon: Users, color: 'text-[#338A3E]', bg: 'bg-[#E8F5E9]' },
         ].map((card, i) => (
           <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
@@ -308,7 +309,7 @@ export function LocationActivity() {
               ) : (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-[#9E9E9E] text-sm font-medium">
-                    No running database listings match the applied search filters.
+                    No listings found. Try adjusting your search or filters.
                   </td>
                 </tr>
               )}

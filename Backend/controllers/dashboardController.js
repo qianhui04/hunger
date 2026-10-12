@@ -4,19 +4,19 @@ const DashboardModel = require('../models/dashboardModel');
 // Shared Global App Settings Constants 
 const MEAL_PORTION_WEIGHT_KG = 0.4;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONDAY_FIRST_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const SUNDAY_FIRST_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 exports.getMainOverviewMetrics = async (req, res) => {
     try {
         // 1. Invoke Model layer to execute database selection operation
-        const listings = await DashboardModel.getRawAnalyticsData();
+        const { listings, users } = await DashboardModel.getDashboardData();
 
         // Fallback initialization block if listings are blank
         if (listings.length === 0) {
             return res.status(200).json({
-                stats: { total_listings: 0, pax_distributed: 0, food_saved: 0, active_users: 0 },
+                stats: { total_listings: 0, pax_distributed: 0, food_saved: 0, total_users: 0 },
                 chartData: { foodTypeDistribution: [], locationActivity: [], weeklyActivity: [] },
-                matrixData: MONDAY_FIRST_ORDER.map(day => ({ day, '08:00': 0, '12:00': 0, '17:00': 0 })),
+                matrixData: SUNDAY_FIRST_ORDER.map(day => ({ day, '08:00': 0, '12:00': 0, '17:00': 0 })),
                 todayListings: []
             });
         }
@@ -24,12 +24,28 @@ exports.getMainOverviewMetrics = async (req, res) => {
         // 2. Perform algorithmic conversions & data mapping
         const total_listings = listings.length;
         let pax_distributed = 0;
-        const uniqueHosts = new Set();
+        const total_users = users.length;
+
+        const active_listings = listings.filter(
+            item => item.status === 'available'
+        ).length;
+
+        const available_pax = listings
+            .filter(item => item.status === 'available')
+            .reduce((total, item) => total + item.pax_remaining, 0);
+
+        const now = new Date();
+
+        const expiring_soon = listings.filter(item => {
+            const pickupEnd = new Date(item.pickup_end);
+            const diff = pickupEnd - now;
+
+            return diff > 0 && diff <= 30 * 60 * 1000;
+        }).length;
 
         listings.forEach(item => {
             const physicallyClaimedCount = item.claims ? item.claims.length : 0;
             pax_distributed += physicallyClaimedCount;
-            if (item.host_uid) uniqueHosts.add(item.host_uid);
         });
 
         const today = new Date();
@@ -89,7 +105,7 @@ exports.getMainOverviewMetrics = async (req, res) => {
             matrixTracker[dayName][chosenSlot].distributedPax += physicallyClaimedCount;
         });
 
-        const matrixData = MONDAY_FIRST_ORDER.map(day => ({
+        const matrixData = SUNDAY_FIRST_ORDER.map(day => ({
             day,
             '08:00': matrixTracker[day]['08:00'].totalPax === 0 ? 0 : Math.round((matrixTracker[day]['08:00'].distributedPax / matrixTracker[day]['08:00'].totalPax) * 100),
             '12:00': matrixTracker[day]['12:00'].totalPax === 0 ? 0 : Math.round((matrixTracker[day]['12:00'].distributedPax / matrixTracker[day]['12:00'].totalPax) * 100),
@@ -110,7 +126,10 @@ exports.getMainOverviewMetrics = async (req, res) => {
                 total_listings,
                 pax_distributed,
                 food_saved: pax_distributed * MEAL_PORTION_WEIGHT_KG,
-                active_users: uniqueHosts.size
+                total_users: total_users,
+                active_listings: active_listings,
+                available_pax: available_pax,
+                expiring_soon: expiring_soon,
             },
             chartData: {
                 foodTypeDistribution: Object.entries(foodTypeCount).map(([name, value]) => ({ name, value })),

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type StatusKey = 'available' | 'not_available' | 'inappropriate';
 
@@ -62,18 +62,22 @@ export function FoodListings() {
     }
   };
 
-  const handleHideListing = async (id: string, currentStatus: string, createdAt: string) => {
+  const handleHideListing = async (id: string, currentStatus: string, pickup_end: string, pax_remaining: number) => {
     const cleanStatus = currentStatus?.trim();
     const newStatus = cleanStatus === 'not_available' ? 'available' : 'not_available';
     const actionWord = newStatus === 'not_available' ? 'hide' : 'unhide';
 
     if (newStatus === 'available') {
-      const createdTime = new Date(createdAt).getTime();
-      const currentTime = new Date().getTime();
-      const twoHoursInMs = 2 * 60 * 60 * 1000;
+      const paxRemaining = pax_remaining;
+      const pickup_end_timestamp = new Date(pickup_end).getTime();
 
-      if (currentTime - createdTime > twoHoursInMs) {
-        alert("⚠️ Food Safety Restriction: This listing cannot be unhidden because it was created more than 2 hours ago.");
+      if (Date.now() >= pickup_end_timestamp) {
+        alert("⚠️ This listing cannot be unhidden because the pickup period has ended.");
+        return;
+      }
+
+      if (paxRemaining <= 0) {
+        alert("⚠️ This listing cannot be unhidden because all portions have been claimed.");
         return;
       }
     }
@@ -232,7 +236,7 @@ export function FoodListings() {
                         <div className="flex items-center gap-2">
                           <button
                             title={listing.status === 'not_available' ? 'Unhide' : 'Hide'}
-                            onClick={() => handleHideListing(listing.id, listing.status, listing.created_at)}
+                            onClick={() => handleHideListing(listing.id, listing.status, listing.created_at, listing.pax_remaining)}
                             className={`p-2 rounded-lg transition-colors ${listing.status === 'not_available'
                               ? 'text-[#9E9E9E] bg-gray-100 hover:bg-gray-200'
                               : 'text-[#2E7D32] hover:bg-[#E8F5E9]'

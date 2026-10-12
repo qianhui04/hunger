@@ -21,12 +21,12 @@ class FoodListingModel {
     }
 
     /**
-     * Looks up a single record's timestamp for safety checks
+     * Looks up a single record's metadata for status update
      */
-    static async getCreationTime(id) {
+    static async getListingForStatusUpdate(id) {
         const { data, error } = await supabase
             .from('food_listings')
-            .select('created_at')
+            .select('pickup_end, pax_remaining')
             .eq('id', id)
             .single();
 

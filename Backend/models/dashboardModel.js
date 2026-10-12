@@ -5,27 +5,43 @@ class DashboardModel {
     /**
      * Fetches raw active listings along with specific checked-in claims profiles
      */
-    static async getRawAnalyticsData() {
-        const { data: listings, error } = await supabase
+    static async getDashboardData() {
+
+        // 1. Food listing + checked-in claims
+        const { data: listings, error: listingsError } = await supabase
             .from('food_listings')
             .select(`
-                created_at, 
-                food_type, 
-                pax_total, 
-                pax_remaining, 
-                pickup_location, 
-                status, 
+                created_at,
+                food_type,
+                pax_total,
+                pax_remaining,
+                pickup_location,
                 host_uid,
-                claims(id)
+                pickup_end,
+                status,
+                claims (
+                    id
+                )
             `)
-            .eq('claims.checked_in', true)
-            .eq('claims.status', 'completed');
+            .eq('claims.checked_in', true);
 
-        if (error) {
-            throw new Error(error.message);
+        if (listingsError) {
+            throw new Error(listingsError.message);
         }
 
-        return listings || [];
+        // 2. Totle users registered 
+        const { data: users, error: usersError } = await supabase
+            .from('users')
+            .select(`
+                uid,
+                sub_roles
+            `)
+
+        if (usersError) {
+            throw new Error(usersError.message);
+        }
+
+        return { listings: listings || [], users: users || [] };
     }
 }
 
