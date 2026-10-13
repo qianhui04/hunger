@@ -3,12 +3,16 @@ import { MapPin, Users, Calendar, Search, AlertTriangle, CheckCircle, BarChart3,
 import { MapContainer, TileLayer, Marker, CircleMarker, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 // @ts-ignore
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
 });
 
 interface LocationItem {
@@ -110,6 +114,26 @@ export function LocationActivity() {
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
+  const filteredLocations = locationData.filter((loc) => {
+    // 1. Filter by fulfillment rate
+    const matchesFulfillment =
+      viewFilter === 'high'
+        ? loc.fulfillment_rate >= 70
+        : viewFilter === 'low'
+          ? loc.fulfillment_rate < 70
+          : true;
+
+    // 2. Filter by event name or location
+    const keyword = searchTerm.trim().toLowerCase();
+
+    const matchesSearch =
+      (loc.event_name ?? '').toLowerCase().includes(keyword) ||
+      (loc.location ?? '').toLowerCase().includes(keyword);
+
+    // 3. Both conditions must match
+    return matchesFulfillment && matchesSearch;
+  });
+
   const fallbackMapFocus = useMemo((): [number, number] => {
     if (locationData.length > 0) return [locationData[0].lat, locationData[0].lng];
     return defaultMapCenter;
@@ -164,7 +188,7 @@ export function LocationActivity() {
             {[
               { id: 'all', label: 'All Listings', icon: BarChart3, color: 'text-[#2E7D32]' },
               { id: 'high', label: 'High Fulfillment (≥70%)', icon: CheckCircle, color: 'text-[#2E7D32]' },
-              { id: 'low', label: 'Low Turnout (<70%)', icon: AlertTriangle, color: 'text-[#F57C00]' },
+              { id: 'low', label: 'Low Fulfillment (<70%)', icon: AlertTriangle, color: 'text-[#F57C00]' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -203,9 +227,9 @@ export function LocationActivity() {
             <MapContainer center={fallbackMapFocus} zoom={14} minZoom={3} maxZoom={18} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
               <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               <MapResizeTrigger />
-              <AutoFitBounds locations={locationData} fallbackCenter={defaultMapCenter} />
+              <AutoFitBounds locations={filteredLocations} fallbackCenter={defaultMapCenter} />
 
-              {locationData.map((loc) => {
+              {filteredLocations.map((loc) => {
                 const LeafletTooltip = Tooltip as any;
                 return (
                   <React.Fragment key={loc.id}>
@@ -253,8 +277,8 @@ export function LocationActivity() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {locationData.length > 0 ? (
-                locationData.map((loc) => (
+              {filteredLocations.length > 0 ? (
+                filteredLocations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-[#F9FBF9] transition-colors duration-150">
                     {/* Event Info */}
                     <td className="py-4 px-6">
@@ -300,8 +324,8 @@ export function LocationActivity() {
 
                     {/* Overall Yield Badge */}
                     <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${loc.fulfillment_rate >= 75 ? 'bg-[#E8F5E9] text-[#2E7D32]' : loc.fulfillment_rate >= 50 ? 'bg-[#FFF3E0] text-[#F57C00]' : 'bg-[#FFEBEE] text-[#D32F2F]'}`}>
-                        {loc.fulfillment_rate >= 75 ? 'High Yield' : loc.fulfillment_rate >= 50 ? 'Stable' : 'Low Turnout'}
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${loc.fulfillment_rate >= 70 ? 'bg-[#E8F5E9] text-[#2E7D32]' : 'bg-[#FFEBEE] text-[#D32F2F]'}`}>
+                        {loc.fulfillment_rate >= 70 ? 'High Fulfillment' : 'Low Fulfillment'}
                       </span>
                     </td>
                   </tr>
