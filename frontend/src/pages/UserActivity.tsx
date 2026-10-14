@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, Ban, User, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -9,6 +10,7 @@ interface UserActivityRecord {
   name: string;
   email: string;
   role: 'student' | 'staff';
+  is_restricted: boolean;
   subRoles: string[];
   food_shared: number;
   food_claimed: number;
@@ -20,6 +22,7 @@ interface UserActivityResponse {
     totalProviders: number;
     totalReceivers: number;
     totalClaims: number;
+    totalRestrictedUsers: number;
   };
 
   users: UserActivityRecord[];
@@ -42,7 +45,8 @@ export function UserActivity() {
       totalUsers: 0,
       totalProviders: 0,
       totalReceivers: 0,
-      totalClaims: 0
+      totalClaims: 0,
+      totalRestrictedUsers: 0
     });
   const [activityData, setActivityData] = useState<UserActivityResponse['monthlyActivity']>([]);
 
@@ -60,9 +64,10 @@ export function UserActivity() {
       setStats(
         data.stats || {
           totalUsers: 0,
-          activeProviders: 0,
-          activeReceivers: 0,
-          totalClaims: 0
+          totalProviders: 0,
+          totalReceivers: 0,
+          totalClaims: 0,
+          totalRestrictedUsers: 0
         }
       );
       setActivityData(data.monthlyActivity || []);
@@ -76,6 +81,40 @@ export function UserActivity() {
 
   useEffect(() => {
     fetchUserActivity();
+
+    const channel = supabase
+      .channel('user-activity-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'food_listings',
+        },
+        () => {
+          console.log('✅ REALTIME EVENT RECEIVED: food_listings');
+          fetchUserActivity();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'claims'
+        },
+        () => {
+          console.log('✅ REALTIME EVENT RECEIVED: claims');
+          fetchUserActivity();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const filteredUsers = users.filter((user) => {
@@ -100,11 +139,57 @@ export function UserActivity() {
           .toLowerCase()
           .includes(search)
       );
+    })
+    .sort((a, b) => {
+      if (selectedTab === 'providers') {
+        return b.food_shared - a.food_shared;
+      }
+
+      return b.food_claimed - a.food_claimed;
     });
 
-  const handleRestrictUser = (userId: string, userName: string) => {
-    if (confirm(`Are you sure you want to restrict user "${userName}"?`)) {
-      alert(`User ${userName} has been restricted.`);
+  const handleRestrictUser = async (userId: string, userName: string, is_restricted: boolean) => {
+    const action = is_restricted ? 'unrestrict' : 'restrict';
+
+    if (!confirm(`Are you sure you want to ${action} user "${userName}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/restrict-user', {
+        method: "PATCH",
+        headers: {
+          "Content-Type": 'application/json',
+        },
+        body: JSON.stringify({
+          uid: userId,
+          is_restricted: !is_restricted,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || `Failed to ${action} user`);
+      }
+
+      setUsers((currentUsers) =>
+        currentUsers.map((user) =>
+          user.id === userId
+            ? { ...user, is_restricted: !is_restricted }
+            : user
+        )
+      );
+
+      setStats((currentStats) => ({
+        ...currentStats,
+        totalRestrictedUsers: currentStats.totalRestrictedUsers + (is_restricted ? -1 : 1),
+      }));
+
+      alert(`User ${userName} has been ${action}ed.`);
+    } catch (error) {
+      console.error(`Failed to ${action} user:`, error);
+      alert(`Failed to ${action} user. Please try again.`);
     }
   };
 
@@ -158,7 +243,7 @@ export function UserActivity() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-[#9E9E9E]">Restricted Users</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">3</p>
+              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalRestrictedUsers}</p>
             </div>
             <div className="w-12 h-12 rounded-lg bg-[#FFEBEE] flex items-center justify-center">
               <Ban size={24} className="text-[#D32F2F]" />
@@ -273,11 +358,14 @@ export function UserActivity() {
                   {/* <td className="py-4 px-6 text-sm text-[#2E7D32] font-semibold">{user.points}</td> */}
                   <td className="py-4 px-6">
                     <button
-                      onClick={() => handleRestrictUser(user.id, user.name)}
-                      className="px-4 py-2 text-sm text-[#D32F2F] hover:bg-[#FFEBEE] rounded-lg transition-colors flex items-center gap-2"
+                      onClick={() => handleRestrictUser(user.id, user.name, user.is_restricted)}
+                      className={`px-4 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${user.is_restricted
+                        ? 'text-[#2E7D32] hover:bg-[#E8F5E9]'
+                        : 'text-[#D32F2F] hover:bg-[#FFEBEE]'
+                        }`}
                     >
                       <Ban size={16} />
-                      Restrict
+                      {user.is_restricted ? "Unrestrict" : "Restrict"}
                     </button>
                   </td>
                 </tr>

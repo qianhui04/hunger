@@ -31,15 +31,17 @@ export function Login() {
     setErrorMessage('');
     setIsLoading(true);
 
-    if (!email.endsWith('@um.edu.my') && !email.endsWith('@siswa.um.edu.my')) {
-      setErrorMessage('Access Denied. You must use an official UM email address (@um.edu.my or @siswa.um.edu.my)');
+    const normalizedEmail = email.trim().toLocaleLowerCase();
+
+    if (!normalizedEmail.endsWith('@um.edu.my') && !normalizedEmail.endsWith('@siswa.um.edu.my')) {
+      setErrorMessage('Access Denied. You must use an official UM email address (@um.edu.my or @siswa.um.edu.my).');
       setIsLoading(false);
       return;
     }
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 

@@ -2,6 +2,10 @@
 const express = require('express');
 const cors = require('cors');
 
+// swagger.js
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
+
 const foodListingsRouter = require('./routes/foodListingsRoutes');
 const locationRouter = require('./routes/locationRoutes');
 const dashboardRouter = require('./routes/dashboardRoutes');
@@ -12,6 +16,15 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        message: 'Backend server is running'
+    });
+});
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Application MVC Pipeline Mapping Registry Base 
 app.use(authRouter); // Mount root entry-points directly

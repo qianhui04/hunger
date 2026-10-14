@@ -5,7 +5,7 @@ class userActivityModel {
     static async getAllUsers() {
         const { data, error } = await supabase
             .from('users')
-            .select(`uid, sub_roles, name, email, app_role`);
+            .select(`uid, sub_roles, name, email, app_role, is_restricted`);
 
         if (error) throw error;
 
@@ -30,6 +30,17 @@ class userActivityModel {
         if (error) throw error;
 
         return data || [];
+    }
+
+    static async updateUserRestriction(uid, is_restricted) {
+        const { data, error } = await supabase
+            .from('users')
+            .update({ is_restricted })
+            .eq('uid', uid);
+
+        if (error) throw error;
+
+        return data;
     }
 }
 

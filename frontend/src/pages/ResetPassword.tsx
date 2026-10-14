@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
-import { getAuth, confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
+import { supabase } from '../lib/supabaseClient';
 
 export function ResetPassword() {
     const [searchParams] = useSearchParams();
+    const recoveryType = searchParams.get('type');
     const navigate = useNavigate();
-    const auth = getAuth();
-
-    // Extract the verification tracking code parameter from Firebase deep link URL string
-    const actionCode = searchParams.get('oobCode');
 
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -20,33 +17,31 @@ export function ResetPassword() {
     const [errorMsg, setErrorMsg] = useState('');
     const [linkExpired, setLinkExpired] = useState(false);
 
+    const [isRecoveryVerified, setIsRecoveryVerified] = useState(false);
+    const [recoveryError, setRecoveryError] = useState(false);
+
     // Validate action link token state on component creation
     useEffect(() => {
-        if (!actionCode) {
-            setErrorMsg('Missing key action access credentials.');
-            setIsVerifyingCode(false);
-            return;
-        }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
 
-        verifyPasswordResetCode(auth, actionCode)
-            .then(() => {
-                setIsVerifyingCode(false);
-            })
-            .catch((err) => {
-                console.error("Token verification failed:", err);
-                setIsVerifyingCode(false);
-                // Alternative Flow - Reset Link Expired / Revoked Handling
-                if (err.code === 'auth/expired-action-code' || err.code === 'auth/invalid-action-code') {
-                    setLinkExpired(true);
-                } else {
-                    setErrorMsg('Exception Flow - Server response validation pipeline failure.');
+                console.log('AUTH EVENT:', event, 'HAS SESSION:', Boolean(session));
+
+                if (event === 'PASSWORD_RECOVERY' && session) {
+                    setIsRecoveryVerified(true);
+                    setIsVerifyingCode(false);
                 }
-            });
-    }, [actionCode, auth]);
+
+            }
+        )
+        return () => {
+            subscription.unsubscribe();
+        }
+    }, []);
 
     const handleUpdateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (isLoading || !actionCode) return;
+        if (isLoading || !isRecoveryVerified) return;
 
         setErrorMsg('');
 
@@ -63,19 +58,25 @@ export function ResetPassword() {
         setIsLoading(true);
 
         try {
-            // Finalize mutation parameter inside Firebase backend
-            await confirmPasswordReset(auth, actionCode, newPassword);
+
+            const { error } = await supabase.auth.updateUser({
+                password: newPassword,
+            });
+
+            if (error) throw error;
+
             alert('Password updated successfully!');
-            navigate('/login'); // Redirect to login page upon success
+            navigate('/login');
+
         } catch (err: any) {
+
             console.error("Mutation failure state error:", err);
-            if (err.code === 'auth/expired-action-code') {
-                setLinkExpired(true);
-            } else {
-                setErrorMsg(err.message || 'Exception Flow - Connection failure during execution update.');
-            }
+            setErrorMsg(err.message || 'Exception Flow - Connection failure during execution update.');
+
         } finally {
+
             setIsLoading(false);
+
         }
     };
 
