@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { PageHeader } from '../components/PageHeader';
+import { SearchInput } from '../components/SearchInput';
 import { Trophy, TrendingUp, Ban, User, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
@@ -195,11 +197,10 @@ export function UserActivity() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-[#212121]">User Activity Monitor</h1>
-        <p className="text-[#9E9E9E] mt-1">Track user participation and engagement levels</p>
-      </div>
+      <PageHeader
+        title="User Activity Monitor"
+        description="Track user participation and engagement levels"
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -297,16 +298,11 @@ export function UserActivity() {
 
         {/* Search */}
         <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-            <input
-              type="text"
-              placeholder="Search users by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent"
-            />
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search users by name or email..."
+          />
         </div>
 
         {/* Users Table */}
