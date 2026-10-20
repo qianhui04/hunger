@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { PageHeader } from '../components/PageHeader';
+import { SearchInput } from '../components/SearchInput';
 import {
     AlertTriangle, MessageSquare, Settings, Sparkles,
     Sliders, Search, Eye, Filter, Info
@@ -149,11 +151,10 @@ export function AbuseSafety() {
     return (
         <div className="space-y-6">
 
-            {/* Module Title Section */}
-            <div>
-                <h1 className="text-2xl font-semibold text-[#212121]">Abuse Management Workspace</h1>
-                <p className="text-[#9E9E9E] mt-1">Review AI evaluations, verify aggregated content anomalies, and confirm recommendations</p>
-            </div>
+            <PageHeader
+                title="Abuse Management Workspace"
+                description="Review AI evaluations, verify aggregated content anomalies, and confirm recommendations"
+            />
 
             {/* Primary Global Insight Blocks */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -229,16 +230,13 @@ export function AbuseSafety() {
                 <div className="lg:col-span-5 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden flex flex-col h-[600px]">
 
                     <div className="p-4 border-b border-gray-100 bg-[#F9FBF9] space-y-3">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search ticket hash reference or identifiers..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full text-xs pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E7D32] bg-white"
-                            />
-                        </div>
+                        <SearchInput
+                            value={searchTerm}
+                            onChange={setSearchTerm}
+                            placeholder="Search ticket hash reference or identifiers..."
+                            inputClassName="w-full text-xs pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E7D32] bg-white"
+                            iconSize={16}
+                        />
 
                         <div className="flex items-center justify-between text-xs">
                             <span className="font-medium text-[#9E9E9E] flex items-center gap-1">
