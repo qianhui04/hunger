@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { SearchInput } from '../components/SearchInput';
+import { StatCard } from '../components/StatCard';
 import { MapPin, Users, Calendar, Search, AlertTriangle, CheckCircle, BarChart3, Layers, Loader2, BookmarkCheck } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, CircleMarker, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -159,26 +160,12 @@ export function LocationActivity() {
         description="Real-time event distribution and attendance tracking overview"
       />
 
-      {/* UPGRADED: Scoreboard Cards showing separate tracking metrics */}
+      {/* Shared statistics cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { title: 'Active Listings', value: metrics.availableEvent, icon: MapPin, color: 'text-[#2E7D32]', bg: 'bg-[#E8F5E9]' },
-          { title: 'Avg. Reservation Rate', value: `${metrics.avgReservationRate}%`, icon: BookmarkCheck, color: 'text-[#1565C0]', bg: 'bg-[#E3F2FD]' },
-          { title: 'Avg. Pickup Rate', value: `${metrics.avgFulfillmentRate}%`, icon: Calendar, color: 'text-[#66BB6A]', bg: 'bg-[#E8F5E9]' },
-          { title: 'Total Volume Distributed', value: (metrics.totalPaxDistributed || 0).toLocaleString(), icon: Users, color: 'text-[#338A3E]', bg: 'bg-[#E8F5E9]' },
-        ].map((card, i) => (
-          <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
-            <div className="truncate pr-2 w-full">
-              <p className="text-sm text-[#9E9E9E] truncate">{card.title}</p>
-              <p className="font-semibold text-[#212121] mt-1 text-3xl">
-                {card.value}
-              </p>
-            </div>
-            <div className={`w-12 h-12 rounded-lg ${card.bg} flex items-center justify-center shrink-0`}>
-              <card.icon size={24} className={card.color} />
-            </div>
-          </div>
-        ))}
+        <StatCard title="Active Listings" value={metrics.availableEvent} icon={MapPin} color="#2E7D32" />
+        <StatCard title="Avg. Reservation Rate" value={`${metrics.avgReservationRate}%`} icon={BookmarkCheck} color="#1565C0" />
+        <StatCard title="Avg. Pickup Rate" value={`${metrics.avgFulfillmentRate}%`} icon={Calendar} color="#66BB6A" />
+        <StatCard title="Total Volume Distributed" value={(metrics.totalPaxDistributed || 0).toLocaleString()} icon={Users} color="#338A3E" />
       </div>
 
       {/* Main Unified Workspace */}
