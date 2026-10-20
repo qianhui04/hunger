@@ -32,7 +32,7 @@ const statusStyles: Record<StatusVariant, string> = {
 /** Consistent status presentation. Pass an explicit variant when database values differ from labels. */
 export function StatusBadge({ status, variant = 'default', label }: StatusBadgeProps) {
   return (
-    <Badge variant="outline" className={statusStyles[variant]}>
+    <Badge variant="outline" className={statusStyles[variant] ?? statusStyles.default}>
       {label ?? status.replace(/_/g, ' ')}
     </Badge>
   );
