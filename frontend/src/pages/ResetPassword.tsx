@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PasswordInput } from '../components/PasswordInput';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -149,42 +150,30 @@ export function ResetPassword() {
                 )}
 
                 <form onSubmit={handleUpdateSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">New Password</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={18} />
-                            <input
-                                type={showPass ? 'text' : 'password'}
-                                required
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all bg-[#F5FAF5]"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPass(!showPass)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] hover:text-[#2E7D32]"
-                            >
-                                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
-                        </div>
-                    </div>
+                    <PasswordInput
+                        label="New Password"
+                        value={newPassword}
+                        onChange={setNewPassword}
+                        visible={showPass}
+                        onToggle={() => setShowPass(!showPass)}
+                        placeholder="••••••••"
+                        labelClassName="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2"
+                        inputClassName="w-full pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all bg-[#F5FAF5]"
+                        iconSize={18}
+                        toggleClassName="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] hover:text-[#2E7D32]"
+                    />
 
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Confirm New Password</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={18} />
-                            <input
-                                type={showPass ? 'text' : 'password'}
-                                required
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                placeholder="••••••••"
-                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all bg-[#F5FAF5]"
-                            />
-                        </div>
-                    </div>
+                    <PasswordInput
+                        label="Confirm New Password"
+                        value={confirmPassword}
+                        onChange={setConfirmPassword}
+                        visible={showPass}
+                        showToggle={false}
+                        placeholder="••••••••"
+                        labelClassName="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2"
+                        inputClassName="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all bg-[#F5FAF5]"
+                        iconSize={18}
+                    />
 
                     <button
                         type="submit"
