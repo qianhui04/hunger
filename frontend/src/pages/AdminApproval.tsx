@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { SearchInput } from '../components/SearchInput';
 import {
     CheckCircle,
     XCircle,
@@ -114,16 +115,13 @@ export default function AdminApproval() {
                 </div>
 
                 {/* Search Layout Controller Element */}
-                <div className="relative w-full md:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search applicants by name/email..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all shadow-sm"
-                    />
-                </div>
+                <SearchInput
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Search applicants by name/email..."
+                    wrapperClassName="relative w-full md:w-80"
+                    inputClassName="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all shadow-sm"
+                />
             </div>
 
             {/* FR-70 Notification Display Banner */}

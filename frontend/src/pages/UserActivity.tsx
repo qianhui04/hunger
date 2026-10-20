@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import { PageHeader } from '../components/PageHeader';
+import { SearchInput } from '../components/SearchInput';
+import { StatCard } from '../components/StatCard';
 import { Trophy, TrendingUp, Ban, User, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
@@ -195,61 +198,17 @@ export function UserActivity() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-[#212121]">User Activity Monitor</h1>
-        <p className="text-[#9E9E9E] mt-1">Track user participation and engagement levels</p>
-      </div>
+      <PageHeader
+        title="User Activity Monitor"
+        description="Track user participation and engagement levels"
+      />
 
-      {/* Stats Cards */}
+      {/* Shared statistics cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[#9E9E9E]">Total Active Users</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalUsers}</p>
-            </div>
-            <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
-              <User size={24} className="text-[#2E7D32]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[#9E9E9E]">Active Providers</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalProviders}</p>
-            </div>
-            <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
-              <TrendingUp size={24} className="text-[#66BB6A]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[#9E9E9E]">Active Receivers</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalReceivers}</p>
-            </div>
-            <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
-              <Trophy size={24} className="text-[#338A3E]" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[#9E9E9E]">Restricted Users</p>
-              <p className="text-3xl font-semibold text-[#212121] mt-1">{stats.totalRestrictedUsers}</p>
-            </div>
-            <div className="w-12 h-12 rounded-lg bg-[#FFEBEE] flex items-center justify-center">
-              <Ban size={24} className="text-[#D32F2F]" />
-            </div>
-          </div>
-        </div>
+        <StatCard title="Total Active Users" value={stats.totalUsers} icon={User} color="#2E7D32" />
+        <StatCard title="Active Providers" value={stats.totalProviders} icon={TrendingUp} color="#66BB6A" />
+        <StatCard title="Active Receivers" value={stats.totalReceivers} icon={Trophy} color="#338A3E" />
+        <StatCard title="Restricted Users" value={stats.totalRestrictedUsers} icon={Ban} color="#D32F2F" />
       </div>
 
       {/* Activity Trend Chart */}
@@ -297,16 +256,11 @@ export function UserActivity() {
 
         {/* Search */}
         <div className="p-6 border-b border-gray-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-            <input
-              type="text"
-              placeholder="Search users by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent"
-            />
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search users by name or email..."
+          />
         </div>
 
         {/* Users Table */}
