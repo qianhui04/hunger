@@ -22,21 +22,46 @@ export function ResetPassword() {
 
     // Validate action link token state on component creation
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((event, session) => {
+            console.log(
+                'AUTH EVENT:',
+                event,
+                'HAS SESSION:',
+                Boolean(session)
+            );
 
-                console.log('AUTH EVENT:', event, 'HAS SESSION:', Boolean(session));
-
-                if (event === 'PASSWORD_RECOVERY' && session) {
-                    setIsRecoveryVerified(true);
-                    setIsVerifyingCode(false);
-                }
-
+            if (event === 'PASSWORD_RECOVERY' && session) {
+                setIsRecoveryVerified(true);
+                setIsVerifyingCode(false);
             }
-        )
+        });
+
+        // Check whether a session already exists
+        const checkSession = async () => {
+            const { data, error } = await supabase.auth.getSession();
+
+            console.log(
+                'RECOVERY SESSION CHECK:',
+                Boolean(data.session),
+                error?.message
+            );
+
+            if (data.session) {
+                setIsRecoveryVerified(true);
+                setIsVerifyingCode(false);
+            } else {
+                setIsVerifyingCode(false);
+                setLinkExpired(true);
+            }
+        };
+
+        checkSession();
+
         return () => {
             subscription.unsubscribe();
-        }
+        };
     }, []);
 
     const handleUpdateSubmit = async (e: React.FormEvent) => {

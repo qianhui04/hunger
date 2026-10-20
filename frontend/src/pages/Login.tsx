@@ -89,42 +89,38 @@ export function Login() {
 
     const targetEmail = resetEmail.trim().toLowerCase();
 
-    // 1. Validate University Malaya Email Domain constraints immediately
-    if (!targetEmail.endsWith('@um.edu.my') && !targetEmail.endsWith('@siswa.um.edu.my')) {
-      setModalError('Access Denied. You must enter an official UM email address (@um.edu.my or @siswa.um.edu.my)');
+    // 1. Validate UM email domain
+    if (
+      !targetEmail.endsWith('@um.edu.my') &&
+      !targetEmail.endsWith('@siswa.um.edu.my')
+    ) {
+      setModalError(
+        'Please use an official UM email address (@um.edu.my or @siswa.um.edu.my).'
+      );
       setModalLoading(false);
       return;
     }
 
     try {
-      // 2. Query Supabase registry to verify if email exists
-      const { data: adminExists, error: dbError } = await supabase
-        .from('admin_profiles')
-        .select('email')
-        .eq('email', targetEmail)
-        .maybeSingle();
-
-      if (dbError) throw dbError;
-
-      // Alternative Flow - Email Not Found: Expose no details, display generic success text
-      if (!adminExists) {
-        setModalMessage('If the email is registered, a reset link has been sent.');
-        setModalLoading(false);
-        return;
-      }
-
-      // 3. Handshake with Firebase to dispatch reset payload
-      const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      // 2. Ask Supabase Auth to send the password reset email
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        targetEmail,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
 
       if (error) throw error;
 
-      setModalMessage('Password reset email sent!');
+      // Use generic wording to avoid revealing whether an account exists
+      setModalMessage(
+        'If an account is registered with this email, a reset link will be sent.'
+      );
     } catch (error: any) {
-      console.error("Forgot password flow error:", error);
-
-      setModalError('An error occurred while connecting to the verification query services.');
+      console.error('Forgot password flow error:', error);
+      setModalError(
+        'Unable to send the password reset email. Please try again later.'
+      );
     } finally {
       setModalLoading(false);
     }

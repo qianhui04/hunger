@@ -11,12 +11,15 @@ class DashboardModel {
         const { data: listings, error: listingsError } = await supabase
             .from('food_listings')
             .select(`
+                id,
+                event_name,
                 created_at,
                 food_type,
                 pax_total,
                 pax_remaining,
                 pickup_location,
                 host_uid,
+                pickup_start,
                 pickup_end,
                 status,
                 claims (

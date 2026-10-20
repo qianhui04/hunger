@@ -11,24 +11,44 @@ interface StatCardProps {
   color?: string;
 }
 
-export function StatCard({ title, value, icon: Icon, trend, color = '#2E7D32' }: StatCardProps) {
+export function StatCard({
+  title,
+  value,
+  icon: Icon,
+  trend,
+  color = '#2563EB',
+}: StatCardProps) {
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-[#9E9E9E] mb-1">{title}</p>
-          <p className="text-3xl font-semibold text-[#212121] mb-2">{value}</p>
+    <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="mb-2 text-sm leading-5 text-gray-500">
+            {title}
+          </p>
+
+          <p className="mb-2 break-words text-3xl font-semibold tracking-tight text-gray-900 mt-2">
+            {value}
+          </p>
+
           {trend && (
-            <div className={`text-sm ${trend.isPositive ? 'text-[#2E7D32]' : 'text-[#D32F2F]'}`}>
+            <div
+              className={`mt-3 text-xs font-small ${trend.isPositive
+                ? 'text-green-700'
+                : 'text-red-600'
+                }`}
+            >
               {trend.isPositive ? '↑' : '↓'} {trend.value}
             </div>
           )}
         </div>
+
         <div
-          className="w-12 h-12 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: `${color}15` }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+          style={{
+            backgroundColor: `${color}15`,
+          }}
         >
-          <Icon size={24} style={{ color }} />
+          <Icon size={20} style={{ color }} />
         </div>
       </div>
     </div>

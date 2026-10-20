@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -19,6 +20,7 @@ export function FoodListings() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -214,7 +216,7 @@ export function FoodListings() {
                     hour12: true
                   });
                   return (
-                    <tr key={listing.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors">
+                    <tr key={listing.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors cursor-pointer transition-colors" onClick={() => navigate(`/food-listings/${listing.id}`)}>
                       <td className="py-4 px-6">
                         <p className="text-sm font-medium text-[#212121]">{listing.event_name}</p>
                       </td>

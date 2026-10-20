@@ -76,18 +76,18 @@ export function Register() {
         throw new Error('Unable to create user account.');
       }
 
-      const { error: profileError } = await supabase
-        .from('admin_profiles')
-        .insert({
-          id: user.id,
-          email: formData.email.toLowerCase(),
-          name: formData.name,
-          student_id: formData.studentId,
-        });
+      // const { error: profileError } = await supabase
+      //   .from('admin_profiles')
+      //   .insert({
+      //     id: user.id,
+      //     email: formData.email.toLowerCase(),
+      //     name: formData.name,
+      //     student_id: formData.studentId,
+      //   });
 
-      if (profileError) {
-        throw profileError;
-      }
+      // if (profileError) {
+      //   throw profileError;
+      // }
 
       alert('Registration successful! Awaiting Super Admin verification approval.');
       navigate('/login');

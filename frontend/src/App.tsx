@@ -13,6 +13,7 @@ import AdminApproval from './pages/AdminApproval';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ResetPassword } from './pages/ResetPassword';
+import { FoodListingDetails } from './pages/FoodListingDetails';
 import { Loader2 } from 'lucide-react';
 
 function RootRedirect() {
@@ -93,6 +94,11 @@ export default function App() {
               <Route
                 path="admin-approval"
                 element={<AdminApproval />}
+              />
+
+              <Route
+                path="food-listings/:id"
+                element={<FoodListingDetails />}
               />
 
             </Route>

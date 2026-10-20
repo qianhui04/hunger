@@ -6,7 +6,6 @@ import {
     Search,
     Mail,
     Calendar,
-    ShieldAlert,
     Loader2,
     AlertCircle,
     ThumbsUp
@@ -30,24 +29,47 @@ export default function AdminApproval() {
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
     // FR-68 & FR-70: Hardcoded Simulation Event Handler
-    const handleDecision = (id: string, name: string, decision: 'approved' | 'rejected') => {
+    const handleDecision = async (id: string, name: string, decision: 'approved' | 'rejected') => {
         if (processingId) return;
 
         // Simulate server processing network latency layout
         setProcessingId(id);
         setNotification(null);
 
-        setTimeout(() => {
-            // 1. Update UI state locally by filtering out the handled item
-            setRequests(prev => prev.filter(req => req.id !== id));
-            setProcessingId(null);
+        try {
+            const { data, error } = await supabase
+                .from('admin_profiles')
+                .update({ status: decision })
+                .eq('id', id)
+                .eq('status', 'pending')
+                .select('id, status');
 
-            // 2. FR-70 Simulate dispatching official outward notification alerts
+            if (error) {
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                throw new Error(
+                    'No record was updated. Check your permissions or the request status.'
+                );
+            }
+
+            setRequests(prev => prev.filter(req => req.id !== id));
+
             setNotification({
-                type: decision === 'approved' ? 'success' : 'error',
-                message: `FR-70 Notification Dispatched: Access request for ${name} has been ${decision}. An automated security transmission has been routed to their registered UM email.`
+                type: 'success',
+                message: `${name}'s admin registration has been ${decision}.`
             });
-        }, 900);
+        } catch (error) {
+            console.error('Error processing admin approval:', error);
+
+            setNotification({
+                type: 'error',
+                message: `Failed to ${decision === 'approved' ? 'approve' : 'reject'} ${name}. Please try again.`
+            });
+        } finally {
+            setProcessingId(null);
+        }
     };
 
     useEffect(() => {
@@ -69,19 +91,6 @@ export default function AdminApproval() {
         pendingApproval();
 
     }, []);
-
-    const handleApproval = async (id: string) => {
-        const { data, error } = await supabase
-            .from('admin_profiles')
-            .update({ status: 'approved' })
-            .eq('id', id)
-            .select();
-
-        if (error) {
-            console.error("Error updating approval status:", error);
-            return;
-        }
-    }
 
     // Client Side Filter Utility Component
     const filteredRequests = useMemo(() => {

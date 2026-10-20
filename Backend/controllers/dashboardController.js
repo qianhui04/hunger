@@ -36,12 +36,16 @@ exports.getMainOverviewMetrics = async (req, res) => {
 
         const now = new Date();
 
-        const expiring_soon = listings.filter(item => {
+        const expiringSoonListings = listings.filter(item => {
             const pickupEnd = new Date(item.pickup_end);
             const diff = pickupEnd - now;
 
             return diff > 0 && diff <= 30 * 60 * 1000;
-        }).length;
+        });
+
+        console.log("EXPIRED LISTINGS:", expiringSoonListings);
+
+        const expiring_soon = expiringSoonListings.length;
 
         listings.forEach(item => {
             const physicallyClaimedCount = item.claims ? item.claims.length : 0;
@@ -70,7 +74,7 @@ exports.getMainOverviewMetrics = async (req, res) => {
 
         const locationCount = weeklyDistribution.reduce((acc, item) => {
             if (item.pickup_location) {
-                const location = item.pickup_location.split(',')[0].substring(0, 15);
+                const location = item.pickup_location.split(',')[0];
                 acc[location] = (acc[location] || 0) + 1;
             }
             return acc;
@@ -130,6 +134,7 @@ exports.getMainOverviewMetrics = async (req, res) => {
                 active_listings: active_listings,
                 available_pax: available_pax,
                 expiring_soon: expiring_soon,
+                expiring_soon_listings: expiringSoonListings
             },
             chartData: {
                 foodTypeDistribution: Object.entries(foodTypeCount).map(([name, value]) => ({ name, value })),
