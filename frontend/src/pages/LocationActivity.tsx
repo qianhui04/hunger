@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PageHeader } from '../components/PageHeader';
+import { SearchInput } from '../components/SearchInput';
 import { MapPin, Users, Calendar, Search, AlertTriangle, CheckCircle, BarChart3, Layers, Loader2, BookmarkCheck } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, CircleMarker, useMap, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -152,10 +154,10 @@ export function LocationActivity() {
     <div className="space-y-6 max-w-full overflow-x-hidden p-1">
       <style>{`.leaflet-container { width: 100%; height: 100%; border-radius: 0.75rem; z-index: 1; }`}</style>
 
-      <div>
-        <h1 className="text-2xl font-semibold text-[#212121]">Location Activity Monitor</h1>
-        <p className="text-[#9E9E9E] mt-1">Real-time event distribution and attendance tracking overview</p>
-      </div>
+      <PageHeader
+        title="Location Activity Monitor"
+        description="Real-time event distribution and attendance tracking overview"
+      />
 
       {/* UPGRADED: Scoreboard Cards showing separate tracking metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -201,16 +203,14 @@ export function LocationActivity() {
             ))}
           </div>
 
-          <div className="relative w-full md:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={18} />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search event name or location text..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all"
-            />
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search event name or location text..."
+            wrapperClassName="relative w-full md:w-80"
+            inputClassName="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all"
+            iconSize={18}
+          />
         </div>
 
         {/* Map Workspace Section */}
