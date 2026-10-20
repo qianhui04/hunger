@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { PageHeader } from '../components/PageHeader';
+import { SearchInput } from '../components/SearchInput';
 import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -126,11 +128,10 @@ export function FoodListings() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-[#212121]">Food Listings Monitor</h1>
-        <p className="text-[#9E9E9E] mt-1">Monitor and manage all food sharing records in real-time</p>
-      </div>
+      <PageHeader
+        title="Food Listings Monitor"
+        description="Monitor and manage all food sharing records in real-time"
+      />
 
       {errorMessage && (
         <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm flex items-center gap-2">
@@ -143,16 +144,12 @@ export function FoodListings() {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-            <input
-              type="text"
-              placeholder="Search by event name, food type, or location"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent"
-            />
-          </div>
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search by event name, food type, or location"
+            wrapperClassName="flex-1 relative"
+          />
 
           {/* Status Filter */}
           <div className="flex items-center gap-2">
