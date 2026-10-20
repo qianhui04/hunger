@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PageHeader } from '../components/PageHeader';
 import { SearchInput } from '../components/SearchInput';
+import { StatusBadge } from '../components/StatusBadge';
 import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -222,12 +223,11 @@ export function FoodListings() {
                       <td className="py-4 px-6 text-sm text-[#212121] font-medium">{listing.pax_total}</td>
                       <td className="py-4 px-6 text-sm text-[#212121]">{listing.pax_remaining}</td>
                       <td className="py-4 px-6">
-                        <span
-                          className="px-3 py-1 rounded-full text-xs font-medium inline-block"
-                          style={{ backgroundColor: status.bg, color: status.text }}
-                        >
-                          {status.label}
-                        </span>
+                        <StatusBadge
+                          status={listing.status}
+                          variant={listing.status as StatusKey}
+                          label={status.label}
+                        />
                       </td>
                       <td className="py-4 px-6 text-sm text-[#9E9E9E]">{listing.pickup_location}</td>
                       <td className="py-4 px-6 text-sm text-[#9E9E9E]">{formattedDateTime}</td>
