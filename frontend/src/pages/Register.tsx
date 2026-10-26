@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { PasswordInput } from '../components/PasswordInput';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Shield, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import Button from '../components/ui/button';
 
 export function Register() {
   const navigate = useNavigate();
@@ -166,49 +168,25 @@ export function Register() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-[#212121] mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="Create a strong password"
-                  required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] hover:text-[#2E7D32] transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
+            <PasswordInput
+              label="Password"
+              value={formData.password}
+              onChange={(value) => setFormData({ ...formData, password: value })}
+              visible={showPassword}
+              onToggle={() => setShowPassword(!showPassword)}
+              placeholder="Create a strong password"
+              inputClassName="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-[#212121] mb-2">Confirm Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="Re-enter your password"
-                  required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] hover:text-[#2E7D32] transition-colors"
-                >
-                  {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
+            <PasswordInput
+              label="Confirm Password"
+              value={formData.confirmPassword}
+              onChange={(value) => setFormData({ ...formData, confirmPassword: value })}
+              visible={showConfirmPassword}
+              onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+              placeholder="Re-enter your password"
+              inputClassName="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] focus:border-transparent transition-all"
+            />
 
             <div>
               <label className="flex items-start gap-2 cursor-pointer">
@@ -227,10 +205,10 @@ export function Register() {
               </label>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-[#2E7D32] text-white rounded-lg hover:bg-[#1B5E20] disabled:bg-gray-400 transition-colors font-medium flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+              variant='primary'
             >
               {isLoading ? (
                 <>
@@ -240,7 +218,7 @@ export function Register() {
               ) : (
                 <span>Create Account</span>
               )}
-            </button>
+            </Button>
           </form>
 
           <div className="text-center mt-6">

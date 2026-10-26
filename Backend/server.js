@@ -11,6 +11,7 @@ const locationRouter = require('./routes/locationRoutes');
 const dashboardRouter = require('./routes/dashboardRoutes');
 const authRouter = require('./routes/authRoutes');
 const userActivityRouter = require('./routes/userActivityRoutes');
+const reportRouter = require('./routes/reportRoutes');
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api', foodListingsRouter);
 app.use('/api', locationRouter);
 app.use('/api', dashboardRouter);
 app.use('/api', userActivityRouter);
+app.use('/api', reportRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

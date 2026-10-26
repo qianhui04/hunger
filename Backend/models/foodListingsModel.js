@@ -20,6 +20,31 @@ class FoodListingModel {
         return data || [];
     }
 
+    static async getById(id) {
+        const { data, error } = await supabase
+            .from('food_listings')
+            .select(`
+            *,
+            users (
+                uid,
+                name,
+                email,
+                app_role,
+                sub_roles,
+                student_id,
+                avatar_url,
+                phone_number,
+                created_at,
+                is_restricted
+            )
+        `)
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+        return data;
+    }
+
     /**
      * Looks up a single record's metadata for status update
      */
@@ -45,6 +70,11 @@ class FoodListingModel {
             .select();
 
         if (error) throw error;
+
+        if (!data || data.length === 0) {
+            return null;
+        }
+
         return data;
     }
 

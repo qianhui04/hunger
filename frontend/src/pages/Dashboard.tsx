@@ -3,6 +3,8 @@ import { StatCard } from '../components/StatCard';
 import { Package, Users, TrendingUp, Calendar, AlertTriangle, RefreshCw, User, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import { formatTime } from '@/utils/dateFormatter';
+import CardContainer from '@/components/CardContainer';
 
 const COLORS = ['#2E7D32', '#66BB6A', '#338A3E', '#98EE99', '#4CAF50'];
 
@@ -157,13 +159,7 @@ export function Dashboard() {
         ) : (
           <>
             {/* TODAY */}
-            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-200 px-5 py-4 sm:px-6">
-                <h2 className="text-base font-semibold text-gray-500">Today's Overview</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  A quick summary of today's food-sharing activities.
-                </p>
-              </div>
+            <CardContainer title="Today's Overview" description="A quick summary of today's food-sharing activities.">
 
               <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
 
@@ -327,15 +323,7 @@ export function Dashboard() {
 
                               <td className="whitespace-nowrap px-5 py-4 text-gray-600">
                                 {listing.pickup_end
-                                  ? new Date(listing.pickup_end).toLocaleTimeString(
-                                    'en-MY',
-                                    {
-                                      timeZone: 'Asia/Kuala_Lumpur',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: true,
-                                    }
-                                  )
+                                  ? formatTime(listing.pickup_end)
                                   : '—'}
                               </td>
                             </tr>
@@ -346,19 +334,11 @@ export function Dashboard() {
                   )}
                 </div>
               )}
-            </section>
+            </CardContainer>
 
 
             {/* Today's Active Listings Table */}
-            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <div className="border-b border-gray-200 px-5 py-4 sm:px-6">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Today's Active Listings ({loading ? "..." : todayListings.length})
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Review available food, ramaining portions and expiry status.
-                </p>
-              </div>
+            <CardContainer title={`Today's Active Listings (${loading ? "..." : todayListings.length})`} description='Review available food, ramaining portions and expiry status.'>
 
               <div className="overflow-x-auto">
                 {todayListings.length === 0 ? (
@@ -381,11 +361,7 @@ export function Dashboard() {
                     <tbody className="divide-y divide-gray-100 bg-white">
                       {todayListings.map((listing, index) => {
                         const currentStatus = statusStyles[listing.status as keyof typeof statusStyles] || statusStyles.available;
-                        const pickUpStart = new Date(listing.pickup_start).toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true,
-                        });
+                        const pickUpStart = formatTime(listing.pickup_start);
                         console.log('PICKUP DATE:', listing.pickup_start);
 
                         return (
@@ -415,7 +391,7 @@ export function Dashboard() {
                   </table>
                 )}
               </div>
-            </section>
+            </CardContainer>
 
             {/* Charts Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">

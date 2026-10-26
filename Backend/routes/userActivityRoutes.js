@@ -20,6 +20,31 @@ router.get('/user-activity', userActivityController.getUserActivity);
 
 /**
  * @swagger
+ * /api/user-activity/{userId}:
+ *   get:
+ *     summary: Get user activity details
+ *     description: Retrieve detailed activity for a specific user, including their profile, listings, and claims.
+ *     tags:
+ *       - User Activity
+ *     parameters:
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the user
+ *     responses:
+ *       200:
+ *         description: User activity details retrieved successfully
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Failed to retrieve user activity details
+ */
+router.get('/user-activity/:userId', userActivityController.getUserActivityDetails);
+
+/**
+ * @swagger
  * /api/restrict-user:
  *   patch:
  *     summary: Restrict user

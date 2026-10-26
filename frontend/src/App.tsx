@@ -14,6 +14,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ResetPassword } from './pages/ResetPassword';
 import { FoodListingDetails } from './pages/FoodListingDetails';
+import { UserActivityDetails } from './pages/UserActivityDetails';
 import { Loader2 } from 'lucide-react';
 
 function RootRedirect() {
@@ -99,6 +100,11 @@ export default function App() {
               <Route
                 path="food-listings/:id"
                 element={<FoodListingDetails />}
+              />
+
+              <Route
+                path="user-activity/:userId"
+                element={<UserActivityDetails />}
               />
 
             </Route>

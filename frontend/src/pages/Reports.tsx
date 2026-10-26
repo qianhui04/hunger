@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Download, Calendar, Filter, TrendingUp } from 'lucide-react';
+import { downloadCSV, downloadPDF, getCSVFileSize, getPDFFileSize } from '../utils/reportDownload';
 
 interface ReportParams {
   type: string;
   startDate: string;
   endDate: string;
   format: string;
+}
+
+interface FoodListingReportData {
+  data_coverage: number;
+  totalPaxDistributed: number;
+  totalPaxRemaining: number;
+  totalFoodSaved: number;
+  totalDistributionDurationHours: number;
+  averagePickUpDuration: number;
+  dietary_preferences: {
+    name: string;
+    value: number;
+  }[];
 }
 
 export function Reports() {
@@ -17,6 +31,13 @@ export function Reports() {
   });
 
   const [generating, setGenerating] = useState(false);
+  const [summaryReport, setSummaryReport] = useState<any>(null);
+  const [foodListingReport, setFoodListingReport] = useState<FoodListingReportData | null>(null);
+  const [userActivityReport, setUserActivityReport] = useState<any>(null);
+  const [locationActivityReport, setLocationActivityReport] = useState<any>(null);
+  const [wasteReductionReport, setWasteReductionReport] = useState<any>(null);
+  const [error, setError] = useState(null);
+  const [estimatedFileSize, setEstimatedFileSize] = useState<number | null>(null);
 
   const reportTypes = [
     { value: 'summary', label: 'Overall Summary Report', description: 'Comprehensive overview of all activities' },
@@ -26,20 +47,184 @@ export function Reports() {
     { value: 'waste-reduction', label: 'Food Waste Reduction Report', description: 'Environmental impact analysis' },
   ];
 
-  const recentReports = [
-    { id: 1, name: 'April 2026 Summary Report', type: 'summary', date: '2026-05-01', size: '2.4 MB', format: 'PDF' },
-    { id: 2, name: 'Q1 2026 User Activity', type: 'user-activity', date: '2026-04-01', size: '1.8 MB', format: 'PDF' },
-    { id: 3, name: 'March Food Listings', type: 'food-listings', date: '2026-04-01', size: '3.2 MB', format: 'CSV' },
-    { id: 4, name: 'Location Analysis Q1', type: 'location-activity', date: '2026-03-31', size: '1.5 MB', format: 'PDF' },
-  ];
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     setGenerating(true);
-    setTimeout(() => {
+
+    try {
+      const params = new URLSearchParams({
+        type: reportParams.type,
+        ...(reportParams.startDate && { startDate: reportParams.startDate }),
+        ...(reportParams.endDate && { endDate: reportParams.endDate }),
+        ...(reportParams.format && { format: reportParams.format }),
+      });
+
+      const response = await fetch(`${API_BASE_URL}/reports?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate report. ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const reportData = data.data;
+
+      if (reportParams.type === 'summary') {
+        setSummaryReport(reportData);
+      } else if (reportParams.type === 'food-listings') {
+        setFoodListingReport(reportData);
+      } else if (reportParams.type === 'user-activity') {
+        setUserActivityReport(reportData);
+      } else if (reportParams.type === 'location-activity') {
+        setLocationActivityReport(reportData);
+      } else if (reportParams.type === 'waste-reduction') {
+        setWasteReductionReport(reportData);
+      }
+
+      console.log("Report data: ", data);
+      console.log("Report data: ", reportData);
+
+
+      if (reportParams.format === 'csv') {
+        downloadCSV(
+          reportData,
+          `${reportParams.type}-report-${reportParams.startDate}-${reportParams.endDate}.csv`
+        );
+      } else if (reportParams.format === 'pdf') {
+        downloadPDF(
+          reportData,
+          `${reportParams.type}-report-${reportParams.startDate}-${reportParams.endDate}.pdf`,
+          reportParams.startDate,
+          reportParams.endDate
+        );
+      }
+
+      alert('Report generated successfully!');
+    } catch (error) {
+      console.error('Error generating report:', error);
+      alert(`Failed to generate report. Please try again.`);
+    } finally {
       setGenerating(false);
-      alert(`Report generated successfully!\nType: ${reportParams.type}\nPeriod: ${reportParams.startDate} to ${reportParams.endDate}\nFormat: ${reportParams.format.toUpperCase()}`);
-    }, 2000);
+    }
   };
+
+  let reportData;
+  if (reportParams.type === 'summary') {
+    reportData = summaryReport
+  } else if (reportParams.type === 'food-listings') {
+    reportData = foodListingReport
+  } else if (reportParams.type === 'user-activity') {
+    reportData = userActivityReport
+  } else if (reportParams.type === 'location-activity') {
+    reportData = locationActivityReport
+  } else if (reportParams.type === 'waste-reduction') {
+    reportData = wasteReductionReport
+  }
+
+  useEffect(() => {
+    const { type, startDate, endDate, format } = reportParams;
+
+    if (!type || !startDate || !endDate || !format) {
+      setEstimatedFileSize(null);
+      return;
+    }
+
+    if (startDate > endDate) {
+      setEstimatedFileSize(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setEstimatedFileSize(null);
+
+        const params = new URLSearchParams({
+          type,
+          startDate,
+          endDate,
+          format,
+        });
+
+        const response = await fetch(
+          `${API_BASE_URL}/reports?${params.toString()}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to preview report: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const reportData = result.data;
+
+        if (!result.success || !reportData) {
+          throw new Error('Invalid report response');
+        }
+
+        if (reportParams.type === 'summary') {
+          setSummaryReport(reportData);
+        } else if (reportParams.type === 'food-listings') {
+          setFoodListingReport(reportData);
+        } else if (reportParams.type === 'user-activity') {
+          setUserActivityReport(reportData);
+        } else if (reportParams.type === 'location-activity') {
+          setLocationActivityReport(reportData);
+        } else if (reportParams.type === 'waste-reduction') {
+          setWasteReductionReport(reportData);
+        }
+
+        let size: number;
+
+        if (format === 'csv') {
+          size = getCSVFileSize(reportData);
+        } else if (format === 'pdf') {
+          size = getPDFFileSize(
+            reportData,
+            startDate,
+            endDate
+          );
+        } else {
+          setEstimatedFileSize(null);
+          return;
+        }
+
+        setEstimatedFileSize(size);
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.name === 'AbortError'
+        ) {
+          return;
+        }
+
+        console.error('Error previewing report:', error);
+        setEstimatedFileSize(null);
+      }
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    reportParams.type,
+    reportParams.startDate,
+    reportParams.endDate,
+    reportParams.format,
+  ]);
+
+  const reportingDays =
+    reportParams.startDate && reportParams.endDate
+      ? Math.floor(
+        (
+          new Date(`${reportParams.endDate}T00:00:00`).getTime() -
+          new Date(`${reportParams.startDate}T00:00:00`).getTime()
+        ) / (1000 * 60 * 60 * 24)
+      ) + 1
+      : null;
 
   return (
     <div className="space-y-6">
@@ -71,11 +256,10 @@ export function Reports() {
               {reportTypes.map((type) => (
                 <label
                   key={type.value}
-                  className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    reportParams.type === type.value
-                      ? 'border-[#2E7D32] bg-[#E8F5E9]'
-                      : 'border-gray-200 hover:border-[#2E7D32]/50'
-                  }`}
+                  className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${reportParams.type === type.value
+                    ? 'border-[#2E7D32] bg-[#E8F5E9]'
+                    : 'border-gray-200 hover:border-[#2E7D32]/50'
+                    }`}
                 >
                   <input
                     type="radio"
@@ -140,9 +324,8 @@ export function Reports() {
                   onChange={(e) => setReportParams({ ...reportParams, format: e.target.value })}
                   className="accent-[#2E7D32]"
                 />
-                <span className={`text-sm font-medium ${
-                  reportParams.format === 'pdf' ? 'text-[#2E7D32]' : 'text-[#9E9E9E]'
-                }`}>
+                <span className={`text-sm font-medium ${reportParams.format === 'pdf' ? 'text-[#2E7D32]' : 'text-[#9E9E9E]'
+                  }`}>
                   PDF Document
                 </span>
               </label>
@@ -155,9 +338,8 @@ export function Reports() {
                   onChange={(e) => setReportParams({ ...reportParams, format: e.target.value })}
                   className="accent-[#2E7D32]"
                 />
-                <span className={`text-sm font-medium ${
-                  reportParams.format === 'csv' ? 'text-[#2E7D32]' : 'text-[#9E9E9E]'
-                }`}>
+                <span className={`text-sm font-medium ${reportParams.format === 'csv' ? 'text-[#2E7D32]' : 'text-[#9E9E9E]'
+                  }`}>
                   CSV Spreadsheet
                 </span>
               </label>
@@ -188,7 +370,7 @@ export function Reports() {
       </div>
 
       {/* Recent Reports */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+      {/* <div className="bg-white rounded-xl shadow-sm border border-gray-100">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-[#212121]">Recent Reports</h2>
           <p className="text-sm text-[#9E9E9E] mt-1">Previously generated reports available for download</p>
@@ -220,7 +402,7 @@ export function Reports() {
             </div>
           ))}
         </div>
-      </div>
+      </div> */}
 
       {/* Report Preview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -229,7 +411,7 @@ export function Reports() {
             <TrendingUp size={20} className="text-[#2E7D32]" />
             <h3 className="text-sm font-medium text-[#1B5E20]">Data Coverage</h3>
           </div>
-          <p className="text-2xl font-semibold text-[#1B5E20]">324 Records</p>
+          <p className="text-2xl font-semibold text-[#1B5E20]">{reportData?.data_coverage ?? '--'}</p>
           <p className="text-xs text-[#558B2F] mt-1">For selected period</p>
         </div>
 
@@ -238,7 +420,7 @@ export function Reports() {
             <Filter size={20} className="text-[#2E7D32]" />
             <h3 className="text-sm font-medium text-[#1B5E20]">Active Filters</h3>
           </div>
-          <p className="text-2xl font-semibold text-[#1B5E20]">36 Days</p>
+          <p className="text-2xl font-semibold text-[#1B5E20]">{reportingDays || 0} Days</p>
           <p className="text-xs text-[#558B2F] mt-1">Date range selected</p>
         </div>
 
@@ -247,8 +429,13 @@ export function Reports() {
             <FileText size={20} className="text-[#2E7D32]" />
             <h3 className="text-sm font-medium text-[#1B5E20]">Report Size</h3>
           </div>
-          <p className="text-2xl font-semibold text-[#1B5E20]">~2.1 MB</p>
-          <p className="text-xs text-[#558B2F] mt-1">Estimated file size</p>
+          <p className="text-2xl font-semibold text-[#1B5E20]">
+            {estimatedFileSize !== null
+              ? estimatedFileSize < 1024
+                ? `${estimatedFileSize} B`
+                : `${(estimatedFileSize / 1024).toFixed(2)} KB`
+              : '--'}</p>
+          <p className="text-xs text-[#558B2F] mt-1">{reportParams.format?.toUpperCase() ?? 'Select format'}</p>
         </div>
       </div>
     </div>

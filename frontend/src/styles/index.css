@@ -1,3 +1,27 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+@import "tailwindcss";
+
+:root {
+    /* Primary — Zero Hunger UM Green */
+    --color-primary: #2E7D32;
+    --color-primary-hover: #1B5E20;
+
+    /* Available / Approved / Active */
+    --color-status-success-bg: #E8F5E9;
+    --color-status-success-text: #2E7D32;
+
+    /* Pending */
+    --color-status-pending-bg: #FFF8E1;
+    --color-status-pending-text: #F57F17;
+
+    /* Unavailable / Inactive */
+    --color-status-neutral-bg: #F5F5F5;
+    --color-status-neutral-text: #757575;
+
+    /* Banned / Rejected */
+    --color-status-danger-bg: #FFEBEE;
+    --color-status-danger-text: #D32F2F;
+}

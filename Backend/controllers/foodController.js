@@ -11,6 +11,20 @@ exports.getAllListings = async (req, res) => {
     }
 };
 
+exports.getListingById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const listing = await FoodListingModel.getById(id);
+        if (!listing) {
+            return res.status(404).json({ error: "Food listing not found." });
+        }
+        return res.status(200).json(listing);
+    } catch (error) {
+        console.error("Error fetching listing by ID:", error);
+        return res.status(500).json({ error: "Failed to retrieve food listing." });
+    }
+};
+
 exports.updateStatus = async (req, res) => {
     try {
         const { id } = req.params;

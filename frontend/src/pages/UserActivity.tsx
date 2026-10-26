@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Trophy, TrendingUp, Ban, User, Search } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '../lib/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -9,9 +10,9 @@ interface UserActivityRecord {
   id: string;
   name: string;
   email: string;
-  role: 'student' | 'staff';
+  app_role: 'student' | 'staff';
   is_restricted: boolean;
-  subRoles: string[];
+  sub_roles: string[];
   food_shared: number;
   food_claimed: number;
 }
@@ -49,6 +50,7 @@ export function UserActivity() {
       totalRestrictedUsers: 0
     });
   const [activityData, setActivityData] = useState<UserActivityResponse['monthlyActivity']>([]);
+  const navigate = useNavigate();
 
   const fetchUserActivity = async () => {
     setLoading(true);
@@ -104,7 +106,6 @@ export function UserActivity() {
           table: 'claims'
         },
         () => {
-          console.log('✅ REALTIME EVENT RECEIVED: claims');
           fetchUserActivity();
         }
       )
@@ -119,10 +120,10 @@ export function UserActivity() {
 
   const filteredUsers = users.filter((user) => {
     if (selectedTab === 'providers') {
-      return user.subRoles.includes('provider');
+      return user.sub_roles.includes('provider');
     }
 
-    return user.subRoles.includes('receiver');
+    return user.sub_roles.includes('receiver');
 
   })
     .filter((user) => {
@@ -325,7 +326,7 @@ export function UserActivity() {
             </thead>
             <tbody>
               {filteredUsers.map((user, index) => (
-                <tr key={user.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors">
+                <tr key={user.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors cursor-pointer" onClick={() => navigate(`/user-activity/${user.id}`)}>
                   <td className="py-4 px-6">
                     <div className="flex items-center">
                       {index === 0 && <Trophy className="text-[#FFD700] mr-2" size={20} />}
@@ -346,11 +347,11 @@ export function UserActivity() {
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.role === 'staff'
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.app_role === 'staff'
                       ? 'bg-[#FFF3E0] text-[#F57C00]'
                       : 'bg-[#E8F5E9] text-[#2E7D32]'
                       }`}>
-                      {user.role}
+                      {user.app_role}
                     </span>
                   </td>
                   <td className="py-4 px-6 text-sm text-[#212121] font-medium">{user.food_shared}</td>

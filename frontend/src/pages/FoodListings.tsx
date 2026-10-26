@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { formatDateTime } from '../utils/dateFormatter';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -207,16 +208,9 @@ export function FoodListings() {
                 filteredListings.map((listing) => {
                   const status = statusStyles[listing.status as StatusKey] || fallbackStatusStyle;
 
-                  const formattedDateTime = new Date(listing.created_at).toLocaleString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  });
+                  const formattedDateTime = formatDateTime(listing.created_at)
                   return (
-                    <tr key={listing.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors cursor-pointer transition-colors" onClick={() => navigate(`/food-listings/${listing.id}`)}>
+                    <tr key={listing.id} className="border-b border-gray-100 hover:bg-[#F9FBF9] transition-colors cursor-pointer" onClick={() => navigate(`/food-listings/${listing.id}`)}>
                       <td className="py-4 px-6">
                         <p className="text-sm font-medium text-[#212121]">{listing.event_name}</p>
                       </td>

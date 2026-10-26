@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-
+import { PasswordInput } from '@/components/PasswordInput';
+import Button from '../components/ui/button';
 
 export function Login() {
   const navigate = useNavigate();
@@ -171,28 +172,16 @@ export function Login() {
             </div>
 
             {/* Password Field */}
-            <div>
-              <label className="block text-sm font-medium text-[#212121] mb-2">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={20} />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  disabled={isLoading}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all [&::-ms-reveal]:hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] hover:text-[#2E7D32] transition-colors"
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
+            <PasswordInput
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              visible={showPassword}
+              onToggle={() => setShowPassword(!showPassword)}
+              disabled={isLoading}
+              placeholder="Enter your password"
+              inputClassName="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-lg bg-[#F5FAF5] focus:outline-none focus:ring-2 focus:ring-[#2E7D32] transition-all [&::-ms-reveal]:hidden"
+            />
 
             {/* Remember Me & Forgot Password Trigger */}
             <div className="flex items-center justify-between">
@@ -220,11 +209,10 @@ export function Login() {
               </button>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-3 flex items-center justify-center gap-2 text-white font-medium rounded-lg transition-colors ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#2E7D32] hover:bg-[#1B5E20]'
-                }`}
+              variant='primary'
             >
               {isLoading ? (
                 <>
@@ -234,7 +222,7 @@ export function Login() {
               ) : (
                 'Sign In'
               )}
-            </button>
+            </Button>
           </form>
 
           {/* Divider and Register hooks... */}
