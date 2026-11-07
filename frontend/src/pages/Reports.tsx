@@ -14,7 +14,7 @@ interface FoodListingReportData {
   totalPaxDistributed: number;
   totalPaxRemaining: number;
   totalFoodSaved: number;
-  totalDistributionDurationHours: number;
+  // totalDistributionDurationHours: number;
   averagePickUpDuration: number;
   dietary_preferences: {
     name: string;
@@ -89,14 +89,18 @@ export function Reports() {
       if (reportParams.format === 'csv') {
         downloadCSV(
           reportData,
-          `${reportParams.type}-report-${reportParams.startDate}-${reportParams.endDate}.csv`
+          `${reportParams.type}-report-${reportParams.startDate}-${reportParams.endDate}.csv`,
+          reportParams.type,
+          reportParams.startDate,
+          reportParams.endDate
         );
       } else if (reportParams.format === 'pdf') {
         downloadPDF(
           reportData,
           `${reportParams.type}-report-${reportParams.startDate}-${reportParams.endDate}.pdf`,
           reportParams.startDate,
-          reportParams.endDate
+          reportParams.endDate,
+          reportParams.type
         );
       }
 

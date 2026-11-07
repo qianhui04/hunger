@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 // server.js
 const express = require('express');
 const cors = require('cors');
@@ -12,6 +14,7 @@ const dashboardRouter = require('./routes/dashboardRoutes');
 const authRouter = require('./routes/authRoutes');
 const userActivityRouter = require('./routes/userActivityRoutes');
 const reportRouter = require('./routes/reportRoutes');
+const aiRouter = require('./routes/aiRoutes');
 
 const app = express();
 
@@ -34,6 +37,10 @@ app.use('/api', locationRouter);
 app.use('/api', dashboardRouter);
 app.use('/api', userActivityRouter);
 app.use('/api', reportRouter);
+app.use('/api', aiRouter);
+app.get('/api/test-ai', (req, res) => {
+    res.json({ message: 'AI route is registered!' });
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

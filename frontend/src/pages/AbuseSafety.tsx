@@ -1,88 +1,77 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
     AlertTriangle, MessageSquare, Settings, Sparkles,
     Sliders, Search, Eye, Filter, Info
 } from 'lucide-react';
 
-// ==========================================
-// DATA STRUCTURAL INTERFACES
-// ==========================================
 interface AbuseTicket {
     id: string;
-    targetObjectId: string;
+    target_object_id: string;
+    target_type: 'listing' | 'claim' | 'user';
+    reported_user_uid: string;
+
+    report_count: number;
+    calculated_severity_score: number;
+
+    ticket_status: 'unresolved' | 'resolved';
+
+    ai_insights_summary: string | null;
+    ai_suggested_action: string | null;
+    ai_behavioral_tag: string | null;
+    ai_flagged_snippets: string[] | null;
+
+    created_at: string;
+    updated_at: string;
+    resolved_at: string | null;
+
     reportedUser: {
-        name: string;
-        email: string;
-        violationCount: number;
-        behavioralTag: 'Chronic Offender' | 'First Time Flag' | 'Suspicious Spike' | 'Clean Record';
-    };
-    category: 'Hate Speech' | 'Harassment' | 'Threat of Violence' | 'Spam / Scam';
-    rawContent: string;
-    flaggedPhrases: string[];
-    reportCount: number;
-    aiSeverityScore: number;
-    aiSuggestedAction: 'Immediate Suspension' | 'Issue Content Warning' | 'Dismiss Report';
-    timestamp: string;
+        uid: string;
+        username: string | null;
+        email: string | null;
+    } | null;
+
+    abuse_reports: AbuseReport[];
 }
 
-const initialTickets: AbuseTicket[] = [
-    {
-        id: 'TKT-9012',
-        targetObjectId: 'POST-4412',
-        reportedUser: {
-            name: 'Alex Rivera',
-            email: 'arivera99@domain.com',
-            violationCount: 4,
-            behavioralTag: 'Chronic Offender',
-        },
-        category: 'Threat of Violence',
-        rawContent: "I know where you live and I will personally come down there next Friday and make sure you pay for what you said.",
-        flaggedPhrases: ["know where you live", "personally come down", "make sure you pay"],
-        reportCount: 14,
-        aiSeverityScore: 94,
-        aiSuggestedAction: 'Immediate Suspension',
-        timestamp: '10 mins ago',
-    },
-    {
-        id: 'TKT-3341',
-        targetObjectId: 'POST-8821',
-        reportedUser: {
-            name: 'Jordan Sparks',
-            email: 'jsparks@domain.com',
-            violationCount: 1,
-            behavioralTag: 'First Time Flag',
-        },
-        category: 'Hate Speech',
-        rawContent: "Get out of our community you absolute piece of trash, your kind is fundamentally inferior and shouldn't exist here.",
-        flaggedPhrases: ["piece of trash", "fundamentally inferior", "shouldn't exist here"],
-        reportCount: 6,
-        aiSeverityScore: 82,
-        aiSuggestedAction: 'Immediate Suspension',
-        timestamp: '34 mins ago',
-    },
-    {
-        id: 'TKT-1102',
-        targetObjectId: 'USER-9941',
-        reportedUser: {
-            name: 'CryptoBot_v4',
-            email: 'bot441@spammail.net',
-            violationCount: 2,
-            behavioralTag: 'Suspicious Spike',
-        },
-        category: 'Spam / Scam',
-        rawContent: "CLICK HERE TO CLAIM YOUR $5000 AIRDROP IMMEDIATELY!! Safe coin guaranteed 100x gains overnight don't miss out links below!",
-        flaggedPhrases: ["CLAIM YOUR $5000 AIRDROP", "100x gains overnight"],
-        reportCount: 41,
-        aiSeverityScore: 68,
-        aiSuggestedAction: 'Issue Content Warning',
-        timestamp: '1 hour ago',
-    }
-];
+interface AbuseReport {
+    id: string;
+    listing_id: string | null;
+    claim_id: string | null;
+    reporter: {
+        uid: string;
+        username: string | null;
+        email: string | null;
+    } | null;
+    reported_user_uid: string | null;
+    report_type: 'listing' | null;
+    reasons: string[];
+    notes: string | null;
+    created_at: string;
+}
+
+interface TicketStatistics {
+    totalTickets: number;
+    unresolvedTickets: number;
+    resolvedTickets: number;
+    listingReports: number;
+    claimReports: number;
+    userReports: number;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export function AbuseSafety() {
     // Core Operational States
-    const [tickets, setTickets] = useState<AbuseTicket[]>(initialTickets);
-    const [selectedTicketId, setSelectedTicketId] = useState<string>(initialTickets[0].id);
+    const [tickets, setTickets] = useState<AbuseTicket[]>([]);
+    const [ticketStatistics, setTicketStatistics] = useState<TicketStatistics>({
+        totalTickets: 0,
+        unresolvedTickets: 0,
+        resolvedTickets: 0,
+        listingReports: 0,
+        claimReports: 0,
+        userReports: 0
+    });
+    const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('All');
 
@@ -91,30 +80,19 @@ export function AbuseSafety() {
     const [confidenceThreshold, setConfidenceThreshold] = useState(80);
     const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-    // Active Target Context Resolution
+    const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const processedQueue = useMemo(() => {
+        return tickets
+            .filter(t => (t.reportedUser?.username || '').toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase()))
+            .sort((a, b) => b.calculated_severity_score - a.calculated_severity_score);
+    }, [tickets, searchTerm]);
+
     const currentTicket = useMemo(() => {
         return tickets.find(t => t.id === selectedTicketId) || tickets[0];
     }, [tickets, selectedTicketId]);
 
-    // Automated Severity Sort Engine (FR: Escalated Triage Ranking Placement)
-    const processedQueue = useMemo(() => {
-        return tickets
-            .filter(t => t.reportedUser.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase()))
-            .filter(t => categoryFilter === 'All' || t.category === categoryFilter)
-            .sort((a, b) => b.aiSeverityScore - a.aiSeverityScore);
-    }, [tickets, searchTerm, categoryFilter]);
-
-    const handleApplyAiSuggestion = (ticketId: string, action: string) => {
-        alert(`AI Recommendation Executed:\nProcessing target action [${action}] for ticket reference ${ticketId}.`);
-        setTickets(prev => prev.filter(t => t.id !== ticketId));
-    };
-
-    const handleDismissTicket = (ticketId: string) => {
-        alert(`Ticket ${ticketId} cleared.`);
-        setTickets(prev => prev.filter(t => t.id !== ticketId));
-    };
-
-    // Automated Behavior Tag Layout Mapper (FR: Activity Telemetry Labels)
     const getBehaviorTagStyles = (tag: string) => {
         switch (tag) {
             case 'Chronic Offender': return 'bg-[#FFEBEE] text-[#C62828] border-[#FFCDD2]';
@@ -123,6 +101,84 @@ export function AbuseSafety() {
             default: return 'bg-gray-100 text-gray-700 border-gray-200';
         }
     };
+
+    const fetchTickets = async () => {
+        setLoading(true);
+        setErrorMessage(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tickets`);
+            if (!response.ok) throw new Error('Error when fetching tickets');
+
+            const data = await response.json();
+            setTickets(data);
+        } catch (error: any) {
+            setErrorMessage(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleTicketStatistics = async () => {
+        setLoading(true);
+        setErrorMessage(null);
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tickets/statistics`);
+            if (!response.ok) throw new Error('Error fetching ticket statistics');
+
+            const data = await response.json();
+            setTicketStatistics(data);
+        } catch (error: any) {
+            setErrorMessage(error.message);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handleApplyAiSuggestion = (ticketId: string, action: string) => {
+        alert(`AI Recommendation Executed:\nProcessing target action [${action}] for ticket reference ${ticketId}.`);
+        setTickets(prev => prev.filter(t => t.id !== ticketId));
+    };
+
+    const handleDismissTicket = async (ticketId: string) => {
+        alert(`Ticket ${ticketId} cleared.`);
+        try {
+            setLoading(true);
+            setErrorMessage(null);
+
+            const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: 'resolved'
+                })
+            });
+
+            if (!response.ok) throw new Error('Error fetching ticket statistics');
+
+            const data = await response.json();
+
+            setTickets(prev =>
+                prev.map(ticket =>
+                    ticket.id === ticketId ? data : ticket
+                )
+            );
+
+            alert('Ticket successfully resolved.');
+        } catch (error: any) {
+            setErrorMessage(error.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchTickets();
+        handleTicketStatistics();
+    }, []);
 
     // Content NLP Substring Highlight System (FR: Highlight Toxic Phrases Instantly)
     const renderHighlightedContent = (content: string, phrases: string[]) => {
@@ -162,7 +218,7 @@ export function AbuseSafety() {
                         <MessageSquare size={20} className="text-[#2E7D32]" />
                         <h3 className="text-sm font-medium text-[#1B5E20]">Queue Compression</h3>
                     </div>
-                    <p className="text-2xl font-semibold text-[#1B5E20]">{tickets.reduce((acc, t) => acc + t.reportCount, 0)} Reports Packed</p>
+                    <p className="text-2xl font-semibold text-[#1B5E20]">{ticketStatistics.totalTickets} Reports Packed</p>
                     <p className="text-xs text-[#558B2F] mt-1">Aggregated logs under active object signatures</p>
                 </div>
 
@@ -277,24 +333,22 @@ export function AbuseSafety() {
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-mono font-bold text-[#212121]">{ticket.id}</span>
                                             <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-gray-50 border border-gray-100 text-[#9E9E9E]">
-                                                Obj: {ticket.targetObjectId}
+                                                Obj: {ticket.target_object_id}
                                             </span>
                                         </div>
                                         <div className="bg-gray-900 text-white font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded">
-                                            Risk: {ticket.aiSeverityScore}%
+                                            Risk: {ticket.calculated_severity_score}%
                                         </div>
                                     </div>
 
-                                    <p className="text-xs text-[#212121] line-clamp-2 italic">"{ticket.rawContent}"</p>
-
                                     <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-50 text-[11px]">
                                         <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-[#212121]">{ticket.reportedUser.name}</span>
+                                            <span className="font-semibold text-[#212121]">{ticket.reportedUser?.username}</span>
                                             <span className="bg-[#F1F8E9] text-[#2E7D32] border border-[#2E7D32]/20 rounded px-1 text-[10px] font-bold">
-                                                Count: {ticket.reportCount}
+                                                Count: {ticket.report_count}
                                             </span>
                                         </div>
-                                        <span className="text-[#9E9E9E]">{ticket.timestamp}</span>
+                                        <span className="text-[#9E9E9E]">{ticket.created_at}</span>
                                     </div>
                                 </div>
                             ))
@@ -314,9 +368,6 @@ export function AbuseSafety() {
                             {/* Workspace Context Top Header Bar */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
                                 <div>
-                                    <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#E8F5E9] text-[#2E7D32] border border-[#2E7D32]/20">
-                                        {currentTicket.category}
-                                    </span>
                                     <h2 className="text-base font-semibold text-[#212121] mt-2 flex items-center gap-1">
                                         Evidence File Evaluation
                                         <span className="text-xs font-mono font-normal text-[#9E9E9E]">({currentTicket.id})</span>
@@ -331,27 +382,29 @@ export function AbuseSafety() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-[#212121]">
-                                            {currentTicket.reportedUser.name.charAt(0)}
+                                            {(currentTicket.reportedUser?.username || '').charAt(0)}
                                         </div>
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm font-semibold text-[#212121]">{currentTicket.reportedUser.name}</span>
-                                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getBehaviorTagStyles(currentTicket.reportedUser.behavioralTag)}`}>
-                                                    {currentTicket.reportedUser.behavioralTag}
+                                                <span className="text-sm font-semibold text-[#212121]">
+                                                    {currentTicket.reportedUser?.username || 'Unknown User'}
+                                                </span>
+
+                                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getBehaviorTagStyles(currentTicket.ai_behavioral_tag || '')}`}>
+                                                    {currentTicket.ai_behavioral_tag || 'No Tag'}
                                                 </span>
                                             </div>
-                                            <span className="text-xs text-[#9E9E9E]">{currentTicket.reportedUser.email}</span>
+
+                                            <span className="text-xs text-[#9E9E9E]">
+                                                {currentTicket.reportedUser?.email || 'No Email'}
+                                            </span>
                                         </div>
                                     </div>
 
                                     <div className="text-xs flex gap-4 bg-white border border-gray-100 rounded-lg p-2.5 shadow-sm">
                                         <div>
                                             <span className="text-[#9E9E9E] block text-[10px]">Identical Clusters</span>
-                                            <span className="text-xs font-bold text-[#212121]">{currentTicket.reportCount} Packed</span>
-                                        </div>
-                                        <div className="border-l border-gray-100 pl-4">
-                                            <span className="text-[#9E9E9E] block text-[10px]">Prior Flags</span>
-                                            <span className="text-xs font-bold text-[#212121]">{currentTicket.reportedUser.violationCount} History</span>
+                                            <span className="text-xs font-bold text-[#212121]">{currentTicket.report_count} Reports</span>
                                         </div>
                                     </div>
                                 </div>
@@ -363,7 +416,19 @@ export function AbuseSafety() {
                                     <Eye size={12} /> Content Analysis Highlight System
                                 </label>
                                 <div className="bg-white border border-gray-200 rounded-xl p-4 min-h-[100px] shadow-sm">
-                                    {renderHighlightedContent(currentTicket.rawContent, currentTicket.flaggedPhrases)}
+                                    {currentTicket.ai_flagged_snippets?.length ? (
+                                        <ul className="list-disc pl-5 space-y-1">
+                                            {currentTicket.ai_flagged_snippets.map((phrase, index) => (
+                                                <li key={index} className="text-sm text-gray-700">
+                                                    {phrase}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-xs text-gray-400">
+                                            No flagged content available.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
@@ -371,7 +436,7 @@ export function AbuseSafety() {
                             <div className="bg-[#F5FAF5] border border-[#2E7D32]/10 rounded-xl p-4 flex gap-3 items-start">
                                 <Info size={16} className="text-[#2E7D32] shrink-0 mt-0.5" />
                                 <p className="text-xs text-[#1B5E20] leading-relaxed">
-                                    <strong>Triage Note:</strong> Content string match targets resource object <strong>{currentTicket.targetObjectId}</strong>. Multi-user duplicates are consolidated automatically into this review node profile.
+                                    <strong>Triage Note:</strong> Content string match targets resource object <strong>{currentTicket.target_object_id}</strong>. Multi-user duplicates are consolidated automatically into this review node profile.
                                 </p>
                             </div>
                         </div>
@@ -387,11 +452,18 @@ export function AbuseSafety() {
 
                             {/* AI Suggested Action Dispatch Action Button */}
                             <button
-                                onClick={() => handleApplyAiSuggestion(currentTicket.id, currentTicket.aiSuggestedAction)}
-                                className="w-full sm:w-auto bg-[#2E7D32] hover:bg-[#1B5E20] text-white px-6 py-2.5 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
+                                onClick={() => handleApplyAiSuggestion(
+                                    currentTicket.id,
+                                    currentTicket?.ai_suggested_action || ''
+                                )}
+                                disabled={!currentTicket.ai_suggested_action}
+                                className="w-full sm:w-auto bg-[#2E7D32] hover:bg-[#1B5E20] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
                             >
                                 <Sparkles size={14} />
-                                <span>Execute AI Suggested Action: <strong>{currentTicket.aiSuggestedAction}</strong></span>
+                                <span>
+                                    Execute AI Suggested Action:{' '}
+                                    <strong>{currentTicket.ai_suggested_action || 'No Suggestion'}</strong>
+                                </span>
                             </button>
                         </div>
 

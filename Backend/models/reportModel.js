@@ -385,9 +385,8 @@ class ReportModel {
 
             foodCollectionRate,
             unclaimedPortions,
+            estimatedWasteReductionImpactKg: estimatedFoodSavedKg,
             foodSavedTrend,
-
-            estimatedWasteReductionImpactKg: estimatedFoodSavedKg
         };
     }
 

@@ -93,7 +93,7 @@ exports.getFoodListingsReport = async ({ startDate, endDate }) => {
             totalPaxDistributed,
             totalPaxRemaining,
             totalFoodSaved,
-            totalDistributionDurationHours,
+            // totalDistributionDurationHours,
             averagePickUpDuration,
             dietary_preferences
         };
