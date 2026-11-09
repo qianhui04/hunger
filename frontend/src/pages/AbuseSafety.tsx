@@ -3,11 +3,13 @@ import {
     AlertTriangle, MessageSquare, Settings, Sparkles,
     Sliders, Search, Eye, Filter, Info
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabaseClient';
 
 interface AbuseTicket {
     id: string;
     target_object_id: string;
-    target_type: 'listing' | 'claim' | 'user';
+    target_type: 'listing';
     reported_user_uid: string;
 
     report_count: number;
@@ -15,10 +17,22 @@ interface AbuseTicket {
 
     ticket_status: 'unresolved' | 'resolved';
 
+    ai_analysis_status: 'pending' | 'processing' | 'completed' | 'failed';
+    ai_analysis_version: number;
+    ai_analysis_error: string | null;
     ai_insights_summary: string | null;
     ai_suggested_action: string | null;
     ai_behavioral_tag: string | null;
     ai_flagged_snippets: string[] | null;
+
+    ai_report_frequency_score: number | null;
+    ai_report_consistency_score: number | null;
+    ai_food_safety_score: number | null;
+    ai_evidence_strength_score: number | null;
+
+    ai_confidence_score: number | null;
+    ai_confidence_explanation: string | null;
+    ai_confidence_level: 'High' | 'Low' | null;
 
     created_at: string;
     updated_at: string;
@@ -26,8 +40,17 @@ interface AbuseTicket {
 
     reportedUser: {
         uid: string;
-        username: string | null;
+        name: string | null;
         email: string | null;
+    } | null;
+
+    listing: {
+        id: string;
+        event_name: string | null;
+        food_type: string | null;
+        short_description: string | null;
+        image_url: string | null;
+        pickup_location: string | null;
     } | null;
 
     abuse_reports: AbuseReport[];
@@ -39,7 +62,7 @@ interface AbuseReport {
     claim_id: string | null;
     reporter: {
         uid: string;
-        username: string | null;
+        name: string | null;
         email: string | null;
     } | null;
     reported_user_uid: string | null;
@@ -73,21 +96,68 @@ export function AbuseSafety() {
     });
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('All');
+    const [statusFilter, setStatusFilter] = useState('All Tickets');
+    const [aiConfig, setAiConfig] = useState({
+        report_frequency_weight: 20,
+        report_consistency_weight: 25,
+        food_safety_weight: 35,
+        evidence_strength_weight: 20,
+        confidence_threshold: 80
+    });
 
-    // AI Parameter Weights Control States (FR: Global Triage Adjustments)
-    const [aiSensitivity, setAiSensitivity] = useState(75);
-    const [confidenceThreshold, setConfidenceThreshold] = useState(80);
-    const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [isConfigLoading, setIsConfigLoading] = useState(true);
+    const [isConfigSaving, setIsConfigSaving] = useState(false);
+    const [configError, setConfigError] = useState('');
+    const [configSuccess, setConfigSuccess] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+    const { user } = useAuth();
+    const isSuperAdmin = user?.role === 'super_admin';
+
     const processedQueue = useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+
         return tickets
-            .filter(t => (t.reportedUser?.username || '').toLowerCase().includes(searchTerm.toLowerCase()) || t.id.toLowerCase().includes(searchTerm.toLowerCase()))
-            .sort((a, b) => b.calculated_severity_score - a.calculated_severity_score);
-    }, [tickets, searchTerm]);
+            .filter(ticket => {
+                const userName = ticket.reportedUser?.name || '';
+                const ticketId = ticket.id || '';
+                const objectId = ticket.target_object_id || '';
+                const eventName = ticket.listing?.event_name || '';
+                const foodType = ticket.listing?.food_type || '';
+                const pickupLocation = ticket.listing?.pickup_location || '';
+
+                const reportContent = ticket.abuse_reports
+                    ?.map(report => {
+                        const reasons = (report.reasons || []).join(' ');
+                        const notes = report.notes || '';
+                        return `${reasons} ${notes}`;
+                    })
+                    .join(' ') || '';
+
+                const matchesSearch =
+                    !query ||
+                    userName.toLowerCase().includes(query) ||
+                    ticketId.toLowerCase().includes(query) ||
+                    objectId.toLowerCase().includes(query) ||
+                    eventName.toLowerCase().includes(query) ||
+                    foodType.toLowerCase().includes(query) ||
+                    pickupLocation.toLowerCase().includes(query) ||
+                    reportContent.toLowerCase().includes(query);
+
+                const matchesStatus =
+                    statusFilter === 'All Tickets' ||
+                    ticket.ticket_status === (
+                        statusFilter === 'Unresolved' ? 'unresolved' : 'resolved'
+                    );
+
+                return matchesSearch && matchesStatus;
+            })
+            .sort((a, b) =>
+                b.calculated_severity_score - a.calculated_severity_score
+            );
+    }, [tickets, searchTerm, statusFilter]);
 
     const currentTicket = useMemo(() => {
         return tickets.find(t => t.id === selectedTicketId) || tickets[0];
@@ -128,6 +198,7 @@ export function AbuseSafety() {
             if (!response.ok) throw new Error('Error fetching ticket statistics');
 
             const data = await response.json();
+            console.log(data);
             setTicketStatistics(data);
         } catch (error: any) {
             setErrorMessage(error.message);
@@ -180,6 +251,121 @@ export function AbuseSafety() {
         handleTicketStatistics();
     }, []);
 
+    useEffect(() => {
+        const fetchAIConfig = async () => {
+            try {
+                setIsConfigLoading(true);
+                setConfigError('');
+
+                // Get current Supabase access token
+                const { data: { session }, error: sessionError } =
+                    await supabase.auth.getSession();
+
+                if (sessionError || !session?.access_token) {
+                    throw new Error('Authentication session not found.');
+                }
+
+                // Fetch configuration from backend
+                const response = await fetch(`${API_BASE_URL}/ai-config`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(
+                        result.message || 'Failed to load AI configuration.'
+                    );
+                }
+
+                // Update frontend state using database values
+                setAiConfig({
+                    report_frequency_weight: Number(result.data.report_frequency_weight),
+                    report_consistency_weight: Number(result.data.report_consistency_weight),
+                    food_safety_weight: Number(result.data.food_safety_weight),
+                    evidence_strength_weight: Number(result.data.evidence_strength_weight),
+                    confidence_threshold: Number(result.data.confidence_threshold)
+                });
+
+            } catch (error) {
+                console.error('Fetch AI Configuration Error:', error);
+
+                setConfigError(
+                    error instanceof Error
+                        ? error.message
+                        : 'Failed to load AI configuration.'
+                );
+
+            } finally {
+                setIsConfigLoading(false);
+            }
+        };
+
+        if (user?.id) {
+            fetchAIConfig();
+        }
+    }, [user?.id]);
+
+    // FR-67: Save Global AI Configuration
+    const handleSaveAIConfig = async () => {
+        try {
+            setIsConfigSaving(true);
+            setConfigError('');
+            setConfigSuccess('');
+
+            const { data: { session }, error: sessionError } =
+                await supabase.auth.getSession();
+
+            if (sessionError || !session?.access_token) {
+                throw new Error('Authentication session not found.');
+            }
+
+            const response = await fetch(`${API_BASE_URL}/ai-config`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(aiConfig)
+            });
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.message || 'Failed to save AI configuration.'
+                );
+            }
+
+            // Sync frontend state with saved database values
+            setAiConfig({
+                report_frequency_weight: Number(result.data.report_frequency_weight),
+                report_consistency_weight: Number(result.data.report_consistency_weight),
+                food_safety_weight: Number(result.data.food_safety_weight),
+                evidence_strength_weight: Number(result.data.evidence_strength_weight),
+                confidence_threshold: Number(result.data.confidence_threshold)
+            });
+
+            setConfigSuccess('AI configuration saved successfully.');
+
+        } catch (error) {
+            console.error('Save AI Configuration Error:', error);
+
+            setConfigError(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to save AI configuration.'
+            );
+
+        } finally {
+            setIsConfigSaving(false);
+        }
+    };
+
     // Content NLP Substring Highlight System (FR: Highlight Toxic Phrases Instantly)
     const renderHighlightedContent = (content: string, phrases: string[]) => {
         if (!phrases || phrases.length === 0) return <p className="text-[#212121]">{content}</p>;
@@ -211,264 +397,737 @@ export function AbuseSafety() {
                 <p className="text-[#9E9E9E] mt-1">Review AI evaluations, verify aggregated content anomalies, and confirm recommendations</p>
             </div>
 
-            {/* Primary Global Insight Blocks */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-[#E8F5E9] to-[#F1F8E9] rounded-xl p-6 border border-[#2E7D32]/20">
-                    <div className="flex items-center gap-3 mb-2">
-                        <MessageSquare size={20} className="text-[#2E7D32]" />
-                        <h3 className="text-sm font-medium text-[#1B5E20]">Queue Compression</h3>
+            {/* Overview Statistics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                {/* Total Tickets */}
+                <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-500">
+                            Total Tickets
+                        </p>
+                        <MessageSquare size={20} className="text-gray-400" />
                     </div>
-                    <p className="text-2xl font-semibold text-[#1B5E20]">{ticketStatistics.totalTickets} Reports Packed</p>
-                    <p className="text-xs text-[#558B2F] mt-1">Aggregated logs under active object signatures</p>
+
+                    <p className="text-3xl font-semibold text-gray-900 mt-3">
+                        {ticketStatistics.totalTickets}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mt-1">
+                        All aggregated abuse tickets
+                    </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#E8F5E9] to-[#F1F8E9] rounded-xl p-6 border border-[#2E7D32]/20">
-                    <div className="flex items-center gap-3 mb-2">
-                        <AlertTriangle size={20} className="text-[#2E7D32]" />
-                        <h3 className="text-sm font-medium text-[#1B5E20]">Peak Threat Outbreak</h3>
+                {/* Unresolved Tickets */}
+                <div className="bg-white rounded-xl p-5 border border-amber-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-amber-700">
+                            Unresolved Tickets
+                        </p>
+                        <AlertTriangle size={20} className="text-amber-500" />
                     </div>
-                    <p className="text-2xl font-semibold text-[#1B5E20]">Threat of Violence</p>
-                    <p className="text-xs text-[#558B2F] mt-1">Highest escalation priority tier</p>
+
+                    <p className="text-3xl font-semibold text-amber-700 mt-3">
+                        {ticketStatistics.unresolvedTickets}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mt-1">
+                        Waiting for admin review
+                    </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#E8F5E9] to-[#F1F8E9] rounded-xl p-6 border border-[#2E7D32]/20">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Sliders size={20} className="text-[#2E7D32]" />
-                        <h3 className="text-sm font-medium text-[#1B5E20]">Triage Confidence</h3>
+                {/* Resolved Tickets */}
+                <div className="bg-white rounded-xl p-5 border border-green-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-green-700">
+                            Resolved Tickets
+                        </p>
+                        <Eye size={20} className="text-green-600" />
                     </div>
-                    <p className="text-2xl font-semibold text-[#1B5E20]">{confidenceThreshold}% Floor</p>
-                    <p className="text-xs text-[#558B2F] mt-1">Minimum system classification certainty</p>
+
+                    <p className="text-3xl font-semibold text-green-700 mt-3">
+                        {ticketStatistics.resolvedTickets}
+                    </p>
+
+                    <p className="text-xs text-gray-400 mt-1">
+                        Tickets reviewed and resolved
+                    </p>
                 </div>
+
             </div>
 
-            {/* Global AI Weights Calibration Form Block */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
-                        <Settings size={24} className="text-[#2E7D32]" />
-                    </div>
-                    <div>
-                        <h2 className="text-lg font-semibold text-[#212121]">AI Sensitivity Configuration</h2>
-                        <p className="text-sm text-[#9E9E9E]">Adjust algorithmic sensitivity weights and confidence flags below</p>
-                    </div>
-                </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-[#212121] mb-2">
-                            Toxic Content Sensitivity Trigger ({aiSensitivity}%)
-                        </label>
-                        <input
-                            type="range" min="50" max="100" value={aiSensitivity}
-                            onChange={(e) => setAiSensitivity(Number(e.target.value))}
-                            className="w-full accent-[#2E7D32] bg-[#F5FAF5] h-2 rounded-lg appearance-none cursor-pointer border border-gray-100"
-                        />
+                <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-[#E8F5E9] flex items-center justify-center">
+                            <Settings size={20} className="text-[#2E7D32]" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-semibold text-gray-900">
+                                AI Sensitivity Configuration
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                Global parameters for AI abuse triage
+                            </p>
+                        </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-[#212121] mb-2">
-                            Escalation Match Confidence Floor ({confidenceThreshold}%)
-                        </label>
-                        <input
-                            type="range" min="60" max="100" value={confidenceThreshold}
-                            onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
-                            className="w-full accent-[#2E7D32] bg-[#F5FAF5] h-2 rounded-lg appearance-none cursor-pointer border border-gray-100"
-                        />
-                    </div>
+                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${isSuperAdmin
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-gray-100 text-gray-600'
+                        }`}>
+                        {isSuperAdmin ? 'Manager Access' : 'View Only'}
+                    </span>
                 </div>
+
+                {isConfigLoading ? (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                        Loading AI configuration...
+                    </div>
+                ) : (
+                    <div className="space-y-5">
+
+                        {/* Severity Weights */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-sm font-semibold text-gray-800">
+                                    Abuse Severity Sensitivity
+                                </h3>
+                                <span className={`text-xs font-semibold ${aiConfig.report_frequency_weight +
+                                    aiConfig.report_consistency_weight +
+                                    aiConfig.food_safety_weight +
+                                    aiConfig.evidence_strength_weight === 100
+                                    ? 'text-green-700'
+                                    : 'text-red-600'
+                                    }`}>
+                                    Total: {
+                                        aiConfig.report_frequency_weight +
+                                        aiConfig.report_consistency_weight +
+                                        aiConfig.food_safety_weight +
+                                        aiConfig.evidence_strength_weight
+                                    }%
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+
+                                {([
+                                    {
+                                        key: 'report_frequency_weight',
+                                        label: 'Report Frequency',
+                                        description: 'Number of reports received'
+                                    },
+                                    {
+                                        key: 'report_consistency_weight',
+                                        label: 'Report Consistency',
+                                        description: 'Consistency across reports'
+                                    },
+                                    {
+                                        key: 'food_safety_weight',
+                                        label: 'Food Safety Concern',
+                                        description: 'Potential food safety impact'
+                                    },
+                                    {
+                                        key: 'evidence_strength_weight',
+                                        label: 'Evidence Strength',
+                                        description: 'Specificity and quality of evidence'
+                                    }
+                                ] as const).map((item) => (
+                                    <div key={item.key}>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-xs font-medium text-gray-700">
+                                                {item.label}
+                                            </label>
+                                            <span className="text-xs font-semibold text-[#2E7D32]">
+                                                {aiConfig[item.key]}%
+                                            </span>
+                                        </div>
+
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            value={aiConfig[item.key]}
+                                            disabled={!isSuperAdmin}
+                                            onChange={(e) => {
+                                                setAiConfig(prev => ({
+                                                    ...prev,
+                                                    [item.key]: Number(e.target.value)
+                                                }));
+                                            }}
+                                            className="w-full accent-[#2E7D32] h-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                        />
+
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                            {item.description}
+                                        </p>
+                                    </div>
+                                ))}
+
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100" />
+
+                        {/* Confidence Threshold */}
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-800">
+                                        AI Confidence Threshold
+                                    </h3>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                        Minimum confidence level for a high-confidence AI assessment
+                                    </p>
+                                </div>
+                                <span className="text-sm font-bold text-[#2E7D32]">
+                                    {aiConfig.confidence_threshold}%
+                                </span>
+                            </div>
+
+                            <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={aiConfig.confidence_threshold}
+                                disabled={!isSuperAdmin}
+                                onChange={(e) => {
+                                    setAiConfig(prev => ({
+                                        ...prev,
+                                        confidence_threshold: Number(e.target.value)
+                                    }));
+                                }}
+                                className="w-full accent-[#2E7D32] h-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                        </div>
+
+                        {/* Feedback Messages */}
+                        {configError && (
+                            <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                                {configError}
+                            </p>
+                        )}
+
+                        {configSuccess && (
+                            <p className="text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                                {configSuccess}
+                            </p>
+                        )}
+
+                        {/* Save Button */}
+                        {isSuperAdmin && (
+                            <div className="flex justify-end pt-2">
+                                <button
+                                    onClick={handleSaveAIConfig}
+                                    disabled={
+                                        isConfigSaving ||
+                                        aiConfig.report_frequency_weight +
+                                        aiConfig.report_consistency_weight +
+                                        aiConfig.food_safety_weight +
+                                        aiConfig.evidence_strength_weight !== 100
+                                    }
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2E7D32] text-white text-xs font-semibold hover:bg-[#256628] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isConfigSaving ? 'Saving...' : 'Save Configuration'}
+                                </button>
+                            </div>
+                        )}
+
+                    </div>
+                )}
             </div>
 
             {/* Primary Workspace Dual Columns Split (FR: Review Submitted Abuse Reports View) */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-                {/* Left Pane: Priority Sorted Incident Feed Column */}
-                <div className="lg:col-span-5 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden flex flex-col h-[600px]">
+                {/* Left Pane: Ticket Queue */}
+                <div className="lg:col-span-5 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[650px]">
 
-                    <div className="p-4 border-b border-gray-100 bg-[#F9FBF9] space-y-3">
+                    {/* Header */}
+                    <div className="p-5 border-b border-gray-100 space-y-4">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">
+                                Ticket Queue
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Review and manage submitted abuse reports
+                            </p>
+                        </div>
+
+                        {/* Search */}
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9E9E]" size={16} />
+                            <Search
+                                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                                size={18}
+                            />
                             <input
                                 type="text"
-                                placeholder="Search ticket hash reference or identifiers..."
+                                placeholder="Search user, listing, food type, location or report..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full text-xs pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E7D32] bg-white"
+                                className="w-full text-sm pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2E7D32] bg-white"
                             />
                         </div>
 
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="font-medium text-[#9E9E9E] flex items-center gap-1">
-                                <Filter size={12} /> Categories
-                            </span>
-                            <div className="flex gap-1 overflow-x-auto">
-                                {['All', 'Hate Speech', 'Threat of Violence', 'Spam / Scam'].map(cat => (
-                                    <button
-                                        key={cat}
-                                        onClick={() => setCategoryFilter(cat)}
-                                        className={`px-2 py-1 rounded text-[11px] font-medium transition-all ${categoryFilter === cat
-                                            ? 'bg-[#2E7D32] text-white shadow-sm'
-                                            : 'bg-white text-[#9E9E9E] border border-gray-200 hover:bg-gray-50'
-                                            }`}
-                                    >
-                                        {cat === 'All' ? 'All' : cat.split(' ')[0]}
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Status Filter */}
+                        <div className="flex flex-wrap gap-2">
+                            {['All Tickets', 'Unresolved', 'Resolved'].map(status => (
+                                <button
+                                    key={status}
+                                    onClick={() => setStatusFilter(status)}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${statusFilter === status
+                                        ? 'bg-[#2E7D32] text-white'
+                                        : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    {status}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Dynamic Feed Execution Mapping Area */}
+                    {/* Ticket List */}
                     <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
                         {processedQueue.length > 0 ? (
-                            processedQueue.map((ticket) => (
-                                <div
-                                    key={ticket.id}
-                                    onClick={() => setSelectedTicketId(ticket.id)}
-                                    className={`p-4 cursor-pointer transition-all flex flex-col gap-2 ${selectedTicketId === ticket.id
-                                        ? 'bg-[#E8F5E9]/30 border-l-4 border-[#2E7D32]'
-                                        : 'hover:bg-[#F9FBF9]'
-                                        }`}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-mono font-bold text-[#212121]">{ticket.id}</span>
-                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-gray-50 border border-gray-100 text-[#9E9E9E]">
-                                                Obj: {ticket.target_object_id}
-                                            </span>
-                                        </div>
-                                        <div className="bg-gray-900 text-white font-mono font-semibold text-[10px] px-1.5 py-0.5 rounded">
-                                            Risk: {ticket.calculated_severity_score}%
-                                        </div>
-                                    </div>
+                            processedQueue.map((ticket) => {
+                                const firstReport = ticket.abuse_reports?.[0];
 
-                                    <div className="flex items-center justify-between mt-1 pt-1 border-t border-gray-50 text-[11px]">
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-semibold text-[#212121]">{ticket.reportedUser?.username}</span>
-                                            <span className="bg-[#F1F8E9] text-[#2E7D32] border border-[#2E7D32]/20 rounded px-1 text-[10px] font-bold">
-                                                Count: {ticket.report_count}
+                                const reportReasons = [
+                                    ...new Set(
+                                        ticket.abuse_reports?.flatMap(report => report.reasons || []) || []
+                                    )
+                                ];
+
+                                const reportNotes = ticket.abuse_reports
+                                    ?.map(report => report.notes)
+                                    .filter(Boolean) || [];
+
+                                const isSelected = selectedTicketId === ticket.id;
+
+                                return (
+                                    <div
+                                        key={ticket.id}
+                                        onClick={() => setSelectedTicketId(ticket.id)}
+                                        className={`px-4 py-4 cursor-pointer transition-all border-l-[3px] ${isSelected
+                                            ? 'bg-[#F1F8E9] border-l-[#2E7D32]'
+                                            : 'border-l-transparent hover:bg-gray-50'
+                                            }`}
+                                    >
+                                        {/* User + Risk Score */}
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                                    {ticket.reportedUser?.name || 'Unknown User'}
+                                                </h3>
+
+                                                <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                                                    #{ticket.id.slice(0, 8)}
+                                                </p>
+                                            </div>
+
+                                            <div className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold ${ticket.calculated_severity_score >= 70
+                                                ? 'bg-red-50 text-red-700'
+                                                : ticket.calculated_severity_score >= 40
+                                                    ? 'bg-amber-50 text-amber-700'
+                                                    : 'bg-green-50 text-green-700'
+                                                }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${ticket.calculated_severity_score >= 70
+                                                    ? 'bg-red-500'
+                                                    : ticket.calculated_severity_score >= 40
+                                                        ? 'bg-amber-500'
+                                                        : 'bg-green-500'
+                                                    }`} />
+                                                {ticket.calculated_severity_score}/100
+                                            </div>
+                                        </div>
+
+                                        {/* Report Reasons */}
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                                            {reportReasons.length > 0 ? (
+                                                reportReasons.map(reason => {
+                                                    const reasonStyle =
+                                                        reason === 'unfresh_food'
+                                                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                                            : reason === 'irrelevant_image'
+                                                                ? 'bg-blue-50 text-blue-700 border-blue-100'
+                                                                : 'bg-gray-50 text-gray-600 border-gray-200';
+
+                                                    const reasonLabel = {
+                                                        unfresh_food: 'Unfresh Food',
+                                                        irrelevant_image: 'Irrelevant Image',
+                                                        other: 'Other'
+                                                    }[reason] || reason.replace(/_/g, ' ');
+
+                                                    return (
+                                                        <span
+                                                            key={reason}
+                                                            className={`px-2 py-1 rounded-md border text-[11px] font-medium ${reasonStyle}`}
+                                                        >
+                                                            {reasonLabel}
+                                                        </span>
+                                                    );
+                                                })
+                                            ) : (
+                                                <span className="text-[11px] text-gray-400">
+                                                    No report reason available
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Report Note Preview */}
+                                        {reportNotes.length > 0 && (
+                                            <div className="mt-3 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-lg">
+                                                <div className="flex items-center gap-1.5 mb-1.5">
+                                                    <MessageSquare
+                                                        size={12}
+                                                        className="text-gray-400"
+                                                    />
+                                                    <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                                                        Additional Notes
+                                                    </span>
+                                                </div>
+
+                                                <p className="text-xs text-gray-600 leading-relaxed line-clamp-2">
+                                                    {reportNotes[0]}
+                                                </p>
+
+                                                {reportNotes.length > 1 && (
+                                                    <p className="text-[10px] text-gray-400 mt-1">
+                                                        +{reportNotes.length - 1} more notes
+                                                    </p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Footer */}
+                                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-1.5 text-gray-500">
+                                                    <MessageSquare size={12} />
+                                                    <span className="text-[11px] font-medium">
+                                                        {ticket.report_count} Reports
+                                                    </span>
+                                                </div>
+
+                                                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-semibold ${ticket.ticket_status === 'resolved'
+                                                    ? 'bg-green-50 text-green-700'
+                                                    : 'bg-amber-50 text-amber-700'
+                                                    }`}>
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${ticket.ticket_status === 'resolved'
+                                                        ? 'bg-green-500'
+                                                        : 'bg-amber-500'
+                                                        }`} />
+                                                    {ticket.ticket_status === 'resolved' ? 'Resolved' : 'Unresolved'}
+                                                </span>
+                                            </div>
+
+                                            <span className="text-[10px] text-gray-400">
+                                                {new Date(ticket.created_at).toLocaleDateString('en-GB', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric'
+                                                })}
                                             </span>
                                         </div>
-                                        <span className="text-[#9E9E9E]">{ticket.created_at}</span>
                                     </div>
-                                </div>
-                            ))
+                                );
+                            })
                         ) : (
-                            <div className="py-12 text-center text-[#9E9E9E] text-sm">
-                                No active records match parameters
+                            <div className="py-16 text-center px-4">
+                                <MessageSquare
+                                    size={32}
+                                    className="mx-auto text-gray-300 mb-3"
+                                />
+                                <p className="text-sm font-medium text-gray-600">
+                                    No tickets found
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                    Try changing your search or filter.
+                                </p>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Right Pane: Incident Inspection Workspace Details Frame */}
+                {/* Right Panel: Compact Incident Review Workspace */}
                 {currentTicket && (
-                    <div className="lg:col-span-7 bg-white border border-gray-100 rounded-xl shadow-sm p-6 h-[600px] flex flex-col justify-between">
+                    <div className="lg:col-span-7 bg-white border border-gray-200 rounded-2xl shadow-sm h-[600px] flex flex-col overflow-hidden">
 
-                        <div className="space-y-5 overflow-y-auto pr-1">
-                            {/* Workspace Context Top Header Bar */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+                        {/* Scrollable Content */}
+                        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-5">
+
+                            {/* 1. Header */}
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-base font-semibold text-[#212121] mt-2 flex items-center gap-1">
-                                        Evidence File Evaluation
-                                        <span className="text-xs font-mono font-normal text-[#9E9E9E]">({currentTicket.id})</span>
+                                    <h2 className="text-lg font-bold text-gray-900">
+                                        Incident Review
                                     </h2>
+                                    <p className="text-xs text-gray-400 mt-1 font-mono">
+                                        #{currentTicket.id}
+                                    </p>
+                                </div>
+
+                                <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${currentTicket.ticket_status === 'unresolved'
+                                    ? 'bg-amber-50 text-amber-700'
+                                    : 'bg-green-50 text-green-700'
+                                    }`}>
+                                    {currentTicket.ticket_status === 'unresolved'
+                                        ? 'Unresolved'
+                                        : 'Resolved'}
+                                </span>
+                            </div>
+
+                            {/* 2. Quick Statistics */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <p className="text-xs text-gray-500">
+                                        Severity Score
+                                    </p>
+                                    <div className="flex items-end gap-1 mt-1">
+                                        <span className="text-2xl font-bold text-gray-900">
+                                            {currentTicket.calculated_severity_score}
+                                        </span>
+                                        <span className="text-xs text-gray-400 mb-1">
+                                            / 100
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-xl p-3">
+                                    <p className="text-xs text-gray-500">
+                                        Total Reports
+                                    </p>
+                                    <p className="text-2xl font-bold text-gray-900 mt-1">
+                                        {currentTicket.report_count}
+                                    </p>
+                                </div>
+
+                                <div className="bg-gray-50 rounded-xl p-3 col-span-2 sm:col-span-1">
+                                    <p className="text-xs text-gray-500">
+                                        AI Analysis
+                                    </p>
+                                    <p className={`text-sm font-semibold mt-2 ${currentTicket.ai_analysis_status === 'completed'
+                                        ? 'text-green-700'
+                                        : currentTicket.ai_analysis_status === 'failed'
+                                            ? 'text-red-600'
+                                            : 'text-amber-600'
+                                        }`}>
+                                        {currentTicket.ai_analysis_status === 'completed'
+                                            ? 'Completed'
+                                            : currentTicket.ai_analysis_status === 'failed'
+                                                ? 'Failed'
+                                                : currentTicket.ai_analysis_status === 'processing'
+                                                    ? 'Processing'
+                                                    : 'Pending'}
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Target Entity Parameters Sub-Grid */}
-                            <div className="bg-[#F9FBF9] border border-gray-100 rounded-xl p-4 space-y-3">
-                                <h3 className="text-xs font-bold text-[#9E9E9E] uppercase tracking-wider">Account Telemetry Context</h3>
+                            {/* 3. Listing and Reported User */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center font-bold text-[#212121]">
-                                            {(currentTicket.reportedUser?.username || '').charAt(0)}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-semibold text-[#212121]">
-                                                    {currentTicket.reportedUser?.username || 'Unknown User'}
-                                                </span>
+                                {/* Reported Listing */}
+                                <div className="border border-gray-100 rounded-xl p-3">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                        Reported Listing
+                                    </p>
 
-                                                <span className={`text-[10px] font-medium px-2 py-0.5 rounded border ${getBehaviorTagStyles(currentTicket.ai_behavioral_tag || '')}`}>
-                                                    {currentTicket.ai_behavioral_tag || 'No Tag'}
-                                                </span>
+                                    <div className="flex gap-3 items-center">
+                                        {currentTicket.listing?.image_url ? (
+                                            <img
+                                                src={currentTicket.listing.image_url}
+                                                alt="Food listing"
+                                                className="w-16 h-16 rounded-lg object-cover shrink-0"
+                                            />
+                                        ) : (
+                                            <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                                <Eye size={20} className="text-gray-400" />
                                             </div>
+                                        )}
 
-                                            <span className="text-xs text-[#9E9E9E]">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                                {currentTicket.listing?.event_name || 'Unknown Listing'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {currentTicket.listing?.food_type || 'Unknown Food Type'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-xs text-gray-500 mt-3 line-clamp-2">
+                                        {currentTicket.listing?.short_description || 'No description available.'}
+                                    </p>
+
+                                    <p className="text-xs text-gray-400 mt-2">
+                                        {currentTicket.listing?.pickup_location || 'No location available'}
+                                    </p>
+                                </div>
+
+                                {/* Reported User */}
+                                <div className="border border-gray-100 rounded-xl p-3">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                        Reported User
+                                    </p>
+
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-green-50 text-green-700 flex items-center justify-center font-bold shrink-0">
+                                            {(currentTicket.reportedUser?.name || 'U').charAt(0)}
+                                        </div>
+
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                                {currentTicket.reportedUser?.name || 'Unknown User'}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate">
                                                 {currentTicket.reportedUser?.email || 'No Email'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {currentTicket.ai_behavioral_tag && (
+                                        <div className="mt-3">
+                                            <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full border ${getBehaviorTagStyles(currentTicket.ai_behavioral_tag)}`}>
+                                                {currentTicket.ai_behavioral_tag}
                                             </span>
                                         </div>
-                                    </div>
-
-                                    <div className="text-xs flex gap-4 bg-white border border-gray-100 rounded-lg p-2.5 shadow-sm">
-                                        <div>
-                                            <span className="text-[#9E9E9E] block text-[10px]">Identical Clusters</span>
-                                            <span className="text-xs font-bold text-[#212121]">{currentTicket.report_count} Reports</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Live Incident Document Viewer Container */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-[#9E9E9E] uppercase tracking-wider flex items-center gap-1">
-                                    <Eye size={12} /> Content Analysis Highlight System
-                                </label>
-                                <div className="bg-white border border-gray-200 rounded-xl p-4 min-h-[100px] shadow-sm">
-                                    {currentTicket.ai_flagged_snippets?.length ? (
-                                        <ul className="list-disc pl-5 space-y-1">
-                                            {currentTicket.ai_flagged_snippets.map((phrase, index) => (
-                                                <li key={index} className="text-sm text-gray-700">
-                                                    {phrase}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-xs text-gray-400">
-                                            No flagged content available.
-                                        </p>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Automation Core Reasoning Rationale Box */}
-                            <div className="bg-[#F5FAF5] border border-[#2E7D32]/10 rounded-xl p-4 flex gap-3 items-start">
-                                <Info size={16} className="text-[#2E7D32] shrink-0 mt-0.5" />
-                                <p className="text-xs text-[#1B5E20] leading-relaxed">
-                                    <strong>Triage Note:</strong> Content string match targets resource object <strong>{currentTicket.target_object_id}</strong>. Multi-user duplicates are consolidated automatically into this review node profile.
-                                </p>
-                            </div>
+                            {/* 4. Report Evidence */}
+                            <section>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-bold text-gray-900">
+                                        Report Evidence
+                                    </h3>
+                                    <span className="text-xs text-gray-400">
+                                        {currentTicket.abuse_reports?.length || 0} records
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {currentTicket.abuse_reports?.length ? (
+                                        currentTicket.abuse_reports.map((report, index) => (
+                                            <div
+                                                key={report.id}
+                                                className="bg-gray-50 rounded-xl p-3"
+                                            >
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {report.reasons?.length ? (
+                                                            report.reasons.map(reason => (
+                                                                <span
+                                                                    key={reason}
+                                                                    className="text-xs font-medium bg-red-50 text-red-700 px-2 py-1 rounded-md"
+                                                                >
+                                                                    {reason.replace(/_/g, ' ')}
+                                                                </span>
+                                                            ))
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">
+                                                                No reason provided
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    <span className="text-[11px] text-gray-400 shrink-0">
+                                                        {new Date(report.created_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+
+                                                <p className="text-sm text-gray-700 leading-relaxed">
+                                                    {report.notes || 'No additional notes provided.'}
+                                                </p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-gray-400">
+                                            No report records available.
+                                        </p>
+                                    )}
+                                </div>
+                            </section>
+
+                            {/* 5. AI Assessment */}
+                            <section className="space-y-3">
+                                <h3 className="text-sm font-bold text-gray-900">
+                                    AI Assessment
+                                </h3>
+
+                                {/* Severity Progress */}
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1.5">
+                                        <span className="text-gray-500">
+                                            Risk Level
+                                        </span>
+                                        <span className="font-semibold text-gray-700">
+                                            {Math.min(100, Math.max(0, currentTicket.calculated_severity_score))} / 100
+                                        </span>
+                                    </div>
+
+                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-amber-500 rounded-full transition-all"
+                                            style={{
+                                                width: `${Math.min(100, Math.max(0, currentTicket.calculated_severity_score))}%`
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* AI Insights */}
+                                <div className="border border-gray-100 rounded-xl p-3">
+                                    <p className="text-xs font-semibold text-gray-500 mb-1.5">
+                                        AI Insights
+                                    </p>
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                        {currentTicket.ai_insights_summary || 'AI insights are not available yet.'}
+                                    </p>
+                                </div>
+
+                                {/* Suggested Action */}
+                                <div className="bg-green-50/70 border border-green-100 rounded-xl p-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles size={15} className="text-green-700" />
+                                        <p className="text-sm font-semibold text-green-800">
+                                            Suggested Action
+                                        </p>
+                                    </div>
+
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                        {currentTicket.ai_suggested_action || 'No AI suggestion available yet.'}
+                                    </p>
+
+                                    <p className="text-[11px] text-gray-400 mt-2">
+                                        AI-generated recommendation. Administrator review is required.
+                                    </p>
+                                </div>
+                            </section>
+
                         </div>
 
-                        {/* Bottom Panel: Dedicated AI Suggested Action Workspace */}
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100 bg-white">
+                        {/* Fixed Bottom Actions */}
+                        <div className="shrink-0 border-t border-gray-100 bg-white px-5 py-3 flex items-center justify-between gap-3">
+
+                            <p className="hidden sm:block text-xs text-gray-400">
+                                Review the evidence before making a decision.
+                            </p>
+
                             <button
                                 onClick={() => handleDismissTicket(currentTicket.id)}
-                                className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-[#9E9E9E] hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-center"
+                                disabled={currentTicket.ticket_status === 'resolved'}
+                                className="w-full sm:w-auto px-5 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-colors"
                             >
                                 Dismiss Report
-                            </button>
-
-                            {/* AI Suggested Action Dispatch Action Button */}
-                            <button
-                                onClick={() => handleApplyAiSuggestion(
-                                    currentTicket.id,
-                                    currentTicket?.ai_suggested_action || ''
-                                )}
-                                disabled={!currentTicket.ai_suggested_action}
-                                className="w-full sm:w-auto bg-[#2E7D32] hover:bg-[#1B5E20] disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
-                            >
-                                <Sparkles size={14} />
-                                <span>
-                                    Execute AI Suggested Action:{' '}
-                                    <strong>{currentTicket.ai_suggested_action || 'No Suggestion'}</strong>
-                                </span>
                             </button>
                         </div>
 
                     </div>
                 )}
+
             </div>
         </div>
     );
