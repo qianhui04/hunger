@@ -1088,6 +1088,110 @@ export function AbuseSafety() {
                                     </p>
                                 </div>
 
+                                {/* AI Confidence Assessment */}
+                                <div className="border border-gray-100 rounded-xl p-3 space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-semibold text-gray-500">
+                                            AI Confidence Assessment
+                                        </p>
+
+                                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${currentTicket.ai_confidence_level === 'High'
+                                            ? 'bg-green-50 text-green-700'
+                                            : currentTicket.ai_confidence_level === 'Low'
+                                                ? 'bg-amber-50 text-amber-700'
+                                                : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                            {currentTicket.ai_confidence_level || 'Not Available'}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex justify-between text-xs mb-1.5">
+                                            <span className="text-gray-500">Confidence Score</span>
+                                            <span className="font-semibold text-gray-700">
+                                                {currentTicket.ai_confidence_score !== null
+                                                    ? `${currentTicket.ai_confidence_score}%`
+                                                    : 'N/A'}
+                                            </span>
+                                        </div>
+
+                                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-blue-500 rounded-full transition-all"
+                                                style={{
+                                                    width: `${Math.min(100, Math.max(0, currentTicket.ai_confidence_score ?? 0))}%`
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-gray-50 rounded-lg p-2.5">
+                                        <p className="text-xs font-medium text-gray-500 mb-1">
+                                            Confidence Explanation
+                                        </p>
+                                        <p className="text-xs text-gray-700 leading-relaxed">
+                                            {currentTicket.ai_confidence_explanation ||
+                                                'Confidence explanation is not available yet.'}
+                                        </p>
+                                    </div>
+
+                                    <p className="text-[11px] text-gray-400">
+                                        Confidence indicates the reliability of the AI assessment, not the final moderation decision.
+                                        All reports require administrator review.
+                                    </p>
+                                </div>
+
+                                {/* AI Severity Factor Breakdown */}
+                                <div className="border border-gray-100 rounded-xl p-3 space-y-3">
+                                    <div>
+                                        <p className="text-xs font-semibold text-gray-500">
+                                            AI Severity Factor Breakdown
+                                        </p>
+                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                            Individual factor scores contributing to the overall severity score
+                                        </p>
+                                    </div>
+
+                                    {[
+                                        {
+                                            label: 'Report Frequency',
+                                            score: currentTicket.ai_report_frequency_score
+                                        },
+                                        {
+                                            label: 'Report Consistency',
+                                            score: currentTicket.ai_report_consistency_score
+                                        },
+                                        {
+                                            label: 'Food Safety Concern',
+                                            score: currentTicket.ai_food_safety_score
+                                        },
+                                        {
+                                            label: 'Evidence Strength',
+                                            score: currentTicket.ai_evidence_strength_score
+                                        }
+                                    ].map((factor) => (
+                                        <div key={factor.label}>
+                                            <div className="flex justify-between items-center mb-1.5">
+                                                <span className="text-xs text-gray-600">
+                                                    {factor.label}
+                                                </span>
+                                                <span className="text-xs font-semibold text-gray-700">
+                                                    {factor.score !== null ? `${factor.score}/100` : 'N/A'}
+                                                </span>
+                                            </div>
+
+                                            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-indigo-500 rounded-full transition-all"
+                                                    style={{
+                                                        width: `${Math.min(100, Math.max(0, factor.score ?? 0))}%`
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
                                 {/* Suggested Action */}
                                 <div className="bg-green-50/70 border border-green-100 rounded-xl p-3">
                                     <div className="flex items-center gap-2 mb-2">
