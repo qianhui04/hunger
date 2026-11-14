@@ -43,8 +43,6 @@ exports.getMainOverviewMetrics = async (req, res) => {
             return diff > 0 && diff <= 30 * 60 * 1000;
         });
 
-        console.log("EXPIRED LISTINGS:", expiringSoonListings);
-
         const expiring_soon = expiringSoonListings.length;
 
         listings.forEach(item => {
@@ -80,11 +78,30 @@ exports.getMainOverviewMetrics = async (req, res) => {
             return acc;
         }, {});
 
-        const dailyBreakdown = weeklyDistribution.reduce((acc, item) => {
-            const dayName = DAYS[new Date(item.created_at).getDay()];
-            acc[dayName] = (acc[dayName] || 0) + 1;
-            return acc;
-        }, {});
+        const getDayKey = (date) => {
+            return DAYS[new Date(date).getDay()];
+        }
+
+        const createWeeklyBreakdown = () => {
+            return DAYS.reduce((acc, day) => {
+                acc[day] = {
+                    listings: 0,
+                    shared: 0,
+                    claimed: 0
+                };
+                return acc;
+            }, {});
+        };
+
+        const dailyBreakdown = createWeeklyBreakdown();
+
+        weeklyDistribution.forEach(item => {
+            const day = getDayKey(item.created_at);
+
+            dailyBreakdown[day].listings += 1;
+            dailyBreakdown[day].shared += item.pax_total || 0;
+            dailyBreakdown[day].claimed += item.claims?.length || 0;
+        });
 
         const matrixTracker = DAYS.reduce((acc, day) => {
             acc[day] = {
@@ -139,7 +156,7 @@ exports.getMainOverviewMetrics = async (req, res) => {
             chartData: {
                 foodTypeDistribution: Object.entries(foodTypeCount).map(([name, value]) => ({ name, value })),
                 locationActivity: Object.entries(locationCount).map(([name, value]) => ({ name, value })),
-                weeklyActivity: DAYS.map(day => ({ name: day, value: dailyBreakdown[day] || 0 }))
+                weeklyActivity: DAYS.map(day => ({ name: day, listings: dailyBreakdown[day].listings || 0, shared: dailyBreakdown[day].shared || 0, claimed: dailyBreakdown[day].claimed || 0 }))
             },
             matrixData,
             todayListings

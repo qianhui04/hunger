@@ -355,7 +355,7 @@ export function Dashboard() {
                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Remaining</th>
                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Location</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Pick Up Time</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Pick Up Start</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">
@@ -402,13 +402,43 @@ export function Dashboard() {
                   <h2 className="text-base sm:text-lg font-semibold text-[#212121] mb-4">Weekly Food Distribution</h2>
                   <div className="w-full h-[260px] sm:h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData.weeklyActivity} margin={{ left: -20, right: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
-                        <XAxis dataKey="name" stroke="#9E9E9E" tick={{ fontSize: 11 }} />
-                        <YAxis stroke="#9E9E9E" allowDecimals={false} tick={{ fontSize: 11 }} />
-                        <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #E0E0E0', borderRadius: '8px', fontSize: '12px' }} />
-                        <Bar dataKey="value" fill="#2E7D32" radius={[6, 6, 0, 0]} name="Listing Events" />
-                      </BarChart>
+                      {chartData.weeklyActivity.every(
+                        day => day.listings === 0 &&
+                          day.shared === 0 &&
+                          day.claimed === 0
+                      ) ? (
+                        <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                          No portion claims recorded this week.
+                        </div>
+                      ) : (
+                        <BarChart
+                          data={chartData.weeklyActivity}
+                          margin={{ left: -20, right: 10 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" stroke="#F1F8E9" />
+
+                          <XAxis dataKey="name" stroke="#9E9E9E" tick={{ fontSize: 11 }} />
+
+                          <YAxis
+                            stroke="#9E9E9E"
+                            allowDecimals={false}
+                            tick={{ fontSize: 11 }}
+                          />
+
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: 'white',
+                              border: '1px solid #E0E0E0',
+                              borderRadius: '8px',
+                              fontSize: '12px',
+                            }}
+                          />
+
+                          <Bar dataKey="listings" fill="#2E7D32" name="Listing Events" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="shared" fill="#2E7D32" name="Portions Shared" radius={[6, 6, 0, 0]} />
+                          <Bar dataKey="claimed" fill="#2E7D32" name="Portions Claimed" radius={[6, 6, 0, 0]} />
+                        </BarChart>
+                      )}
                     </ResponsiveContainer>
                   </div>
                 </div>
