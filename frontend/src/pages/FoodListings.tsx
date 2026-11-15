@@ -232,7 +232,7 @@ export function FoodListings() {
                         <div className="flex items-center gap-2">
                           <button
                             title={listing.status === 'not_available' ? 'Unhide' : 'Hide'}
-                            onClick={() => handleHideListing(listing.id, listing.status, listing.created_at, listing.pax_remaining)}
+                            onClick={(event) => { event.stopPropagation(); handleHideListing(listing.id, listing.status, listing.pickup_end, listing.pax_remaining) }}
                             className={`p-2 rounded-lg transition-colors ${listing.status === 'not_available'
                               ? 'text-[#9E9E9E] bg-gray-100 hover:bg-gray-200'
                               : 'text-[#2E7D32] hover:bg-[#E8F5E9]'
@@ -243,7 +243,7 @@ export function FoodListings() {
 
                           <button
                             title='Delete Permanently'
-                            onClick={() => handleRemoveListing(listing.id)}
+                            onClick={(event) => { event.stopPropagation(); handleRemoveListing(listing.id) }}
                             className="p-2 text-[#D32F2F] hover:bg-[#FFEBEE] rounded-lg transition-colors"
                           >
                             <Trash2 size={18} />
