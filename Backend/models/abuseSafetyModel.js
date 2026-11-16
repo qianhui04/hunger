@@ -2,13 +2,14 @@ const supabase = require('../config/supabase');
 
 class AbuseSafetyModel {
     static async getAllTickets() {
+        // Step 1: Get all Master Tickets, Reported Users and Abuse Reports
         const { data, error } = await supabase
             .from('abuse_master_tickets')
             .select(`
             *,
             reportedUser:users!abuse_master_tickets_reported_user_uid_fkey (
                 uid,
-                username,
+                name,
                 email
             ),
             abuse_reports (*)
@@ -16,7 +17,40 @@ class AbuseSafetyModel {
 
         if (error) throw new Error(error.message);
 
-        return data || [];
+        if (!data || data.length === 0) {
+            return [];
+        }
+
+        // Step 2: Get all Listing IDs from Master Tickets
+        const listingIds = data.map(ticket => ticket.target_object_id);
+
+        // Step 3: Fetch the corresponding Food Listings
+        const { data: listings, error: listingError } = await supabase
+            .from('food_listings')
+            .select(`
+            id,
+            event_name,
+            food_type,
+            short_description,
+            image_url,
+            pickup_location
+        `)
+            .in('id', listingIds);
+
+        if (listingError) throw new Error(listingError.message);
+
+        // Step 4: Match each Ticket with its Listing
+        const listingMap = {};
+
+        (listings || []).forEach(listing => {
+            listingMap[listing.id] = listing;
+        });
+
+        // Step 5: Return Tickets with Listing Details
+        return data.map(ticket => ({
+            ...ticket,
+            listing: listingMap[ticket.target_object_id] || null
+        }));
     }
 
     static async getTicketById(id) {
@@ -28,13 +62,13 @@ class AbuseSafetyModel {
                     *,
                     reporter:users!abuse_reports_reporter_uid_fkey (
                         uid,
-                        username,
+                        name,
                         email
                     )
                 ),
                 reportedUser:users!abuse_master_tickets_reported_user_uid_fkey (
                     uid,
-                    username,
+                    name,
                     email
                 )
             `)
@@ -113,7 +147,7 @@ class AbuseSafetyModel {
             *,
             reporter:users!abuse_reports_reporter_uid_fkey (
                 uid,
-                username,
+                name,
                 email
             )
         `)

@@ -4,7 +4,7 @@ const abuseSafetyController = require('../controllers/AbuseSafetyController');
 const {
     validateTicketId,
     validateTicketStatus
-} = require('../middleware/abuseValidation');
+} = require('../middleware/abuseSafetyValidation');
 
 router.get('/tickets', abuseSafetyController.getAllTickets);
 router.get('/tickets/statistics', abuseSafetyController.getTicketStatistics);

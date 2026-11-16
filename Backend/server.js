@@ -14,7 +14,9 @@ const dashboardRouter = require('./routes/dashboardRoutes');
 const authRouter = require('./routes/authRoutes');
 const userActivityRouter = require('./routes/userActivityRoutes');
 const reportRouter = require('./routes/reportRoutes');
+const abuseSafetyRouter = require('./routes/abuseSafetyRoutes');
 const aiRouter = require('./routes/aiRoutes');
+const abuseAIConfigRouter = require('./routes/abuseAIConfigRoutes');
 
 const app = express();
 
@@ -37,10 +39,9 @@ app.use('/api', locationRouter);
 app.use('/api', dashboardRouter);
 app.use('/api', userActivityRouter);
 app.use('/api', reportRouter);
+app.use('/api', abuseSafetyRouter);
 app.use('/api', aiRouter);
-app.get('/api/test-ai', (req, res) => {
-    res.json({ message: 'AI route is registered!' });
-});
+app.use('/api', abuseAIConfigRouter);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

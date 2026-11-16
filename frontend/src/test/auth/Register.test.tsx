@@ -302,4 +302,88 @@ describe('Registration Module', () => {
 
         expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
+
+    // UT-01-019: Verify Registration Password Visibility Toggle
+    it('UT-01-019: toggles registration password visibility', async () => {
+        const user = userEvent.setup();
+
+        render(<Register />);
+
+        const passwordInput = screen.getByPlaceholderText('Create a strong password');
+
+        // Password should initially be hidden
+        expect(passwordInput).toHaveAttribute('type', 'password');
+
+        // Click the visibility toggle
+        await user.click(screen.getAllByRole('button', { name: 'Show password' })[0]);
+
+        // Password should become visible
+        expect(passwordInput).toHaveAttribute('type', 'text');
+
+        // Hide the password again
+        await user.click(screen.getByRole('button', { name: 'Hide password' }));
+
+        expect(passwordInput).toHaveAttribute('type', 'password');
+    });
+
+    it('UT-01-026: navigates to the login page', async () => {
+        const user = userEvent.setup();
+        render(<Register />);
+
+        await user.click(screen.getByRole('button', { name: /sign in here/i }));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/login');
+    });
+    // UT-01-027: Verify Registration Error Handling
+    it('UT-01-027: displays an error when Supabase registration fails', async () => {
+        const user = userEvent.setup();
+
+        vi.mocked(supabase.auth.signUp).mockResolvedValue({
+            data: { user: null, session: null },
+            error: { message: 'User already registered' },
+        } as any);
+
+        render(<Register />);
+
+        await user.type(screen.getByPlaceholderText('Enter your full name'), 'Test Admin');
+        await user.type(screen.getByPlaceholderText('your.name@um.edu.my'), 'admin@um.edu.my');
+        await user.type(screen.getByPlaceholderText('e.g., S12345678'), 'S12345678');
+        await user.type(screen.getByPlaceholderText('Create a strong password'), 'Admin123');
+        await user.type(screen.getByPlaceholderText('Re-enter your password'), 'Admin123');
+
+        await user.click(screen.getByRole('checkbox'));
+        await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+        expect(await screen.findByText('User already registered')).toBeInTheDocument();
+        expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: 'Create Account' })).toBeEnabled();
+    });
+
+    // UT-01-028: Verify Registration Response Without User Object
+    it('UT-01-028: displays an error when Supabase returns no user object', async () => {
+        const user = userEvent.setup();
+
+        vi.mocked(supabase.auth.signUp).mockResolvedValue({
+            data: { user: null, session: null },
+            error: null,
+        } as any);
+
+        render(<Register />);
+
+        await user.type(screen.getByPlaceholderText('Enter your full name'), 'Test Admin');
+        await user.type(screen.getByPlaceholderText('your.name@um.edu.my'), 'admin@um.edu.my');
+        await user.type(screen.getByPlaceholderText('e.g., S12345678'), 'S12345678');
+        await user.type(screen.getByPlaceholderText('Create a strong password'), 'Admin123');
+        await user.type(screen.getByPlaceholderText('Re-enter your password'), 'Admin123');
+
+        await user.click(screen.getByRole('checkbox'));
+        await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+        expect(await screen.findByText('Unable to create user account.')).toBeInTheDocument();
+        expect(supabase.auth.signUp).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', { name: 'Create Account' })).toBeEnabled();
+    });
+
 });

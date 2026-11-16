@@ -1,5 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 const AIModel = require('../models/aiModel');
+const AbuseAIConfigModel = require('../models/abuseAIConfigModel');
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY
@@ -83,9 +84,49 @@ Choose exactly ONE tag from this predefined list:
 4. Potential Misconduct
 5. No Clear Pattern
 
-SEVERITY SCORE:
-Give a score from 0 to 100 based on the available evidence and potential risk.
-Do not increase the score simply because the report count is high.
+SEVERITY FACTOR SCORES:
+
+Evaluate the following four factors independently.
+Each factor must receive a score from 0 to 100.
+
+1. reportFrequencyScore:
+Assess the number of reports received for this listing.
+A higher number of reports may indicate a recurring concern,
+but multiple reports alone do not prove misconduct.
+
+2. reportConsistencyScore:
+Assess whether different reports describe consistent or similar concerns.
+Consistent reports may indicate a recurring issue.
+
+3. foodSafetyScore:
+Assess the potential food safety risk based on reported food conditions,
+such as unfresh food or unusual smell.
+Do not assume a food safety violation without sufficient evidence.
+
+4. evidenceStrengthScore:
+Assess the specificity and detail of the available evidence,
+including report reasons, additional notes, and listing information.
+
+IMPORTANT:
+- Evaluate each factor independently.
+- Do not calculate the final severity score.
+- Do not invent evidence.
+- Return all four factor scores as numbers between 0 and 100.
+
+AI CONFIDENCE SCORE:
+
+Evaluate how reliable your overall assessment is based on the
+specificity, consistency and completeness of the available information.
+
+Return a confidence score from 0 to 100.
+
+Guidelines:
+- High confidence: Reports contain specific details and consistent evidence.
+- Medium confidence: Some useful details exist, but evidence is incomplete.
+- Low confidence: Reports are vague, lack supporting details or contain uncertainty.
+- Do not treat the number of reports alone as proof of reliability.
+- This score measures confidence in your AI assessment,
+  not the severity of the alleged abuse.
 
 SUGGESTED ACTION:
 Provide a recommendation for the administrator.
@@ -93,7 +134,12 @@ This is only a recommendation. Do not claim that any action has already been tak
 
 Return JSON in exactly this structure:
 {
-    "severityScore": 0,
+    "reportFrequencyScore": 0,
+    "reportConsistencyScore": 0,
+    "foodSafetyScore": 0,
+    "evidenceStrengthScore": 0,
+    "confidenceScore": 0,
+    "confidenceExplanation": "Explanation of assessment confidence",
     "behavioralTag": "No Clear Pattern",
     "insightsSummary": "Summary of all reports",
     "suggestedAction": "Recommended administrator action",
@@ -122,13 +168,23 @@ ${JSON.stringify(analysisInput, null, 2)}
                 throw new Error('Gemini returned an invalid JSON response.');
             }
 
-            // 8. Validate AI result
+            // 8. Validate AI factor scores
+            const factorScores = [
+                result.reportFrequencyScore,
+                result.reportConsistencyScore,
+                result.foodSafetyScore,
+                result.evidenceStrengthScore
+            ];
+
             if (
-                typeof result.severityScore !== 'number' ||
-                result.severityScore < 0 ||
-                result.severityScore > 100
+                factorScores.some(score =>
+                    typeof score !== 'number' ||
+                    !Number.isFinite(score) ||
+                    score < 0 ||
+                    score > 100
+                )
             ) {
-                throw new Error('Invalid AI severity score.');
+                throw new Error('Invalid AI factor scores.');
             }
 
             const validTags = [
@@ -151,7 +207,43 @@ ${JSON.stringify(analysisInput, null, 2)}
                 throw new Error('Invalid AI analysis structure.');
             }
 
-            // 9. Save AI analysis results
+            // Validate AI confidence score
+            if (
+                typeof result.confidenceScore !== 'number' ||
+                !Number.isFinite(result.confidenceScore) ||
+                result.confidenceScore < 0 ||
+                result.confidenceScore > 100
+            ) {
+                throw new Error('Invalid AI confidence score.');
+            }
+
+            if (
+                typeof result.confidenceExplanation !== 'string' ||
+                !result.confidenceExplanation.trim()
+            ) {
+                throw new Error('Invalid AI confidence explanation.');
+            }
+
+            // 9. Calculate weighted severity score using global AI configuration
+            const aiConfig = await AbuseAIConfigModel.getConfig();
+
+            // Determine AI confidence level using global threshold
+            result.confidenceLevel =
+                result.confidenceScore >= Number(aiConfig.confidence_threshold)
+                    ? 'High'
+                    : 'Low';
+
+            const weightedSeverityScore = (
+                result.reportFrequencyScore * Number(aiConfig.report_frequency_weight) +
+                result.reportConsistencyScore * Number(aiConfig.report_consistency_weight) +
+                result.foodSafetyScore * Number(aiConfig.food_safety_weight) +
+                result.evidenceStrengthScore * Number(aiConfig.evidence_strength_weight)
+            ) / 100;
+
+            // Round to 2 decimal places
+            result.severityScore = Math.round(weightedSeverityScore * 100) / 100;
+
+            // 10. Save AI analysis results
             const saved = await AIModel.saveAIAnalysis(
                 ticketId,
                 expectedReportCount,

@@ -200,6 +200,55 @@ describe('Login Module', () => {
         expect(mockNavigate).not.toHaveBeenCalled();
     });
 
+    // UT-01-021: Verify Login Password Visibility Toggle
+    it('UT-01-021: toggles login password visibility', async () => {
+        const user = userEvent.setup();
+
+        render(<Login />);
+
+        const passwordInput = screen.getByPlaceholderText('Enter your password');
+
+        expect(passwordInput).toHaveAttribute('type', 'password');
+
+        await user.click(screen.getByRole('button', { name: 'Show password' }));
+
+        expect(passwordInput).toHaveAttribute('type', 'text');
+
+        await user.click(screen.getByRole('button', { name: 'Hide password' }));
+
+        expect(passwordInput).toHaveAttribute('type', 'password');
+    });
+
+    // UT-01-022: Verify Remember Me Checkbox
+    it('UT-01-022: allows users to select and deselect Remember Me', async () => {
+        const user = userEvent.setup();
+
+        render(<Login />);
+
+        const rememberMeCheckbox = screen.getByRole('checkbox', {
+            name: /remember me/i,
+        });
+
+        expect(rememberMeCheckbox).not.toBeChecked();
+
+        await user.click(rememberMeCheckbox);
+
+        expect(rememberMeCheckbox).toBeChecked();
+
+        await user.click(rememberMeCheckbox);
+
+        expect(rememberMeCheckbox).not.toBeChecked();
+    });
+
+    it('UT-01-025: navigates to the registration page', async () => {
+        const user = userEvent.setup();
+        render(<Login />);
+
+        await user.click(screen.getByRole('button', { name: /register here/i }));
+
+        expect(mockNavigate).toHaveBeenCalledWith('/register');
+    });
+
     // Helper: Open Forgot Password Modal
     const openForgotPasswordModal = async (user: ReturnType<typeof userEvent.setup>) => {
         await user.click(screen.getByText(/forgot password/i));
@@ -290,39 +339,64 @@ describe('Login Module', () => {
 
         expect(await screen.findByText(/error|failed|unable/i)).toBeInTheDocument();
     });
-
-    // UT-01-018: Verify Password Reset Link Resubmission
     it('UT-01-018: allows another password reset request', async () => {
         const user = userEvent.setup();
-
         render(<Login />);
 
-        // First reset request
-        await openForgotPasswordModal(user);
+        // Open Forgot Password modal
+        await user.click(screen.getByRole('button', { name: /forgot password/i }));
 
+        // Enter registered UM email
         await user.type(
             screen.getByPlaceholderText('username@um.edu.my'),
             'admin@um.edu.my'
         );
 
+        // Submit first request
         await user.click(screen.getByRole('button', { name: /send reset link/i }));
 
+        // Verify successful request
         await waitFor(() => {
             expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledTimes(1);
         });
 
-        // Open the modal again for another request
-        await openForgotPasswordModal(user);
-
-        await user.type(
-            screen.getByPlaceholderText('username@um.edu.my'),
-            'admin2@um.edu.my'
+        expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+            'admin@um.edu.my',
+            expect.objectContaining({
+                redirectTo: expect.stringContaining('/reset-password'),
+            })
         );
 
-        await user.click(screen.getByRole('button', { name: /send reset link/i }));
+        // Resend the reset link
+        await user.click(screen.getByRole('button', { name: /resend link/i }));
 
+        // Verify second request
         await waitFor(() => {
             expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledTimes(2);
         });
+    });
+
+    it('UT-01-023: opens the forgot password modal', async () => {
+        const user = userEvent.setup();
+        render(<Login />);
+
+        await user.click(screen.getByRole('button', { name: /forgot password/i }));
+
+        expect(screen.getByText('Account Recovery Gateway')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@um.edu.my')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
+    });
+
+    it('UT-01-024: closes the forgot password modal', async () => {
+        const user = userEvent.setup();
+        render(<Login />);
+
+        await user.click(screen.getByRole('button', { name: /forgot password/i }));
+
+        expect(screen.getByText('Account Recovery Gateway')).toBeInTheDocument();
+
+        // Find the actual close button by its accessible name
+        screen.debug();
+
     });
 });

@@ -28,7 +28,6 @@ export default function AdminApproval() {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-    // FR-68 & FR-70: Hardcoded Simulation Event Handler
     const handleDecision = async (id: string, name: string, decision: 'approved' | 'rejected') => {
         if (processingId) return;
 

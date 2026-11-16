@@ -99,6 +99,30 @@ exports.updateStatus = async (req, res) => {
     }
 };
 
+exports.suspendListing = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const data = await FoodListingModel.suspendListing(id);
+
+        return res.status(200).json({
+            message: "Food listing suspended successfully.",
+            data
+        });
+
+    } catch (error) {
+        console.error("Failed to suspend listing:", error);
+
+        return res.status(500).json({
+            error: "Failed to suspend listing.",
+            details: error.message,
+            code: error.code,
+            hint: error.hint,
+            detailsFromDatabase: error.details
+        });
+    }
+};
+
 exports.deleteListing = async (req, res) => {
     try {
         const { id } = req.params;

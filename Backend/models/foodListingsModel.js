@@ -45,9 +45,6 @@ class FoodListingModel {
         return data;
     }
 
-    /**
-     * Looks up a single record's metadata for status update
-     */
     static async getListingForStatusUpdate(id) {
         const { data, error } = await supabase
             .from('food_listings')
@@ -59,14 +56,18 @@ class FoodListingModel {
         return data;
     }
 
-    /**
-     * Updates the status text column of an existing row
-     */
     static async updateStatus(id, status) {
+        if (status === 'suspended') {
+            throw new Error(
+                'Use suspendListing() to suspend a listing.'
+            );
+        }
+
         const { data, error } = await supabase
             .from('food_listings')
             .update({ status })
             .eq('id', id)
+            .neq('status', 'suspended')
             .select();
 
         if (error) throw error;
@@ -78,9 +79,21 @@ class FoodListingModel {
         return data;
     }
 
-    /**
-     * Removes a row permanently from the table
-     */
+    static async suspendListing(id) {
+        const { data, error } = await supabase.rpc(
+            'suspend_listing_and_resolve_ticket',
+            {
+                p_listing_id: id
+            }
+        );
+
+        if (error) throw error;
+
+        return data;
+    }
+
+
+
     static async delete(id) {
         const { error } = await supabase
             .from('food_listings')

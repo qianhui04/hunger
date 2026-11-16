@@ -67,6 +67,15 @@ class AIModel {
             .from('abuse_master_tickets')
             .update({
                 calculated_severity_score: result.severityScore,
+
+                ai_report_frequency_score: result.reportFrequencyScore,
+                ai_report_consistency_score: result.reportConsistencyScore,
+                ai_food_safety_score: result.foodSafetyScore,
+                ai_evidence_strength_score: result.evidenceStrengthScore,
+                ai_confidence_score: result.confidenceScore,
+                ai_confidence_explanation: result.confidenceExplanation,
+                ai_confidence_level: result.confidenceLevel,
+
                 ai_behavioral_tag: result.behavioralTag,
                 ai_insights_summary: result.insightsSummary,
                 ai_suggested_action: result.suggestedAction,

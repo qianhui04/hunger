@@ -67,6 +67,14 @@ export function Login() {
         navigate('/dashboard', { replace: true });
       }
 
+      const getToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        console.log('ACCESS TOKEN:', session?.access_token);
+      };
+
+      getToken();
+
       console.log("LOGIN STEP 3");
     } catch (err: any) {
       console.error("Login error detailed:", err);

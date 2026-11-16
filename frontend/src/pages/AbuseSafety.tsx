@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     AlertTriangle, MessageSquare, Settings, Sparkles,
     Sliders, Search, Eye, Filter, Info
@@ -206,6 +207,8 @@ export function AbuseSafety() {
             setLoading(false);
         }
     }
+
+    const navigate = useNavigate();
 
     const handleApplyAiSuggestion = (ticketId: string, action: string) => {
         alert(`AI Recommendation Executed:\nProcessing target action [${action}] for ticket reference ${ticketId}.`);
@@ -964,6 +967,21 @@ export function AbuseSafety() {
                                     <p className="text-xs text-gray-400 mt-2">
                                         {currentTicket.listing?.pickup_location || 'No location available'}
                                     </p>
+
+                                    <div className="mt-4">
+                                        <button
+                                            onClick={() => {
+                                                navigate(`/food-listings/${currentTicket.target_object_id}`, {
+                                                    state: { from: '/abuse-safety' }
+                                                });
+                                            }}
+                                            disabled={!currentTicket.target_object_id}
+                                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#256428] disabled:opacity-50 transition-colors"
+                                        >
+                                            <Eye size={16} />
+                                            View Listing Details
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {/* Reported User */}

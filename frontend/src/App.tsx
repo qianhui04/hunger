@@ -9,6 +9,7 @@ import { UserActivity } from './pages/UserActivity';
 import { LocationActivity } from './pages/LocationActivity';
 import { Reports } from './pages/Reports';
 import { AbuseSafety } from './pages/AbuseSafety';
+import { AIConfiguration } from './pages/AIConfiguration';
 import AdminApproval from './pages/AdminApproval';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
@@ -90,6 +91,11 @@ export default function App() {
               <Route
                 path="abuse-safety"
                 element={<AbuseSafety />}
+              />
+
+              <Route
+                path="abuse-safety/ai-config"
+                element={<AIConfiguration />}
               />
 
               <Route

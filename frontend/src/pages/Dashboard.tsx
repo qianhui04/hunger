@@ -355,7 +355,7 @@ export function Dashboard() {
                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Remaining</th>
                         <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                         <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Location</th>
-                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Pick Up Start</th>
+                        <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Pickup Start</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 bg-white">

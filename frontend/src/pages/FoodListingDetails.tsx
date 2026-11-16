@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
     ArrowLeft, MapPin, ExternalLink, Calendar, Clock, Users, Pencil, Ban, Flag, Loader2, Utensils, Image as ImageIcon, UserRound, Mail, Phone, GraduationCap, ShieldCheck, CalendarPlus, FileText,
     IdCard,
@@ -76,6 +76,11 @@ export function FoodListingDetails() {
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [closing, setClosing] = useState(false);
+    const [suspending, setSuspending] = useState(false);
+
+    const location = useLocation();
+
+    const backPath = location.state?.from || '/food-listings';
 
     useEffect(() => {
         async function fetchListings() {
@@ -154,6 +159,40 @@ export function FoodListingDetails() {
         setClosing(false);
     }
 
+    async function handleSuspendListing() {
+        if (!listing || !id) return;
+
+        const confirmed = window.confirm(
+            `Are you sure you want to permanently suspend "${listing.event_name}"? This action cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        setSuspending(true);
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/food-listings/${id}/suspend`,
+                {
+                    method: 'PATCH',
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to suspend listing.');
+            }
+
+            alert('Food listing suspended successfully.');
+
+        } catch (error: any) {
+            alert(`Could not suspend listing: ${error.message}`);
+        } finally {
+            setSuspending(false);
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center gap-3 text-gray-500">
@@ -167,11 +206,11 @@ export function FoodListingDetails() {
         return (
             <div className="p-6">
                 <button
-                    onClick={() => navigate('/food-listings')}
+                    onClick={() => navigate(backPath)}
                     className="mb-5 inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
                 >
                     <ArrowLeft size={16} />
-                    Back to Food Listings
+                    Back
                 </button>
 
                 <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
@@ -188,11 +227,11 @@ export function FoodListingDetails() {
             <div className="mx-auto max-w-6xl">
                 {/* Page header */}
                 <button
-                    onClick={() => navigate('/food-listings')}
+                    onClick={() => navigate(backPath)}
                     className="mb-5 inline-flex items-center gap-2 text-sm text-gray-500 transition hover:text-gray-900"
                 >
                     <ArrowLeft size={17} />
-                    Back to Food Listings
+                    Back
                 </button>
 
                 <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -298,7 +337,7 @@ export function FoodListingDetails() {
                                     Dietary Preferences
                                 </p>
 
-                                {listing.dietary_preferences.length > 0 ? (
+                                {(listing.dietary_preferences ?? []).length > 0 ? (
                                     <div className="flex flex-wrap gap-2">
                                         {listing.dietary_preferences.map((preference) => (
                                             <span
@@ -477,14 +516,16 @@ export function FoodListingDetails() {
                                 </Button>
 
                                 <Button
-                                    onClick={() => {
-                                        // Connect to your reporting/flagging workflow.
-                                        window.alert('Connect this button to your flagging workflow.');
-                                    }}
-                                    variant='secondary'
+                                    onClick={handleSuspendListing}
+                                    disabled={listing.status === 'suspended' || suspending}
+                                    variant="destructive"
                                 >
-                                    <Flag size={17} />
-                                    Flag Listing
+                                    {suspending ? (
+                                        <Loader2 size={17} className="animate-spin" />
+                                    ) : (
+                                        <Ban size={17} />
+                                    )}
+                                    {suspending ? 'Suspending...' : 'Suspend Listing'}
                                 </Button>
                             </div>
 

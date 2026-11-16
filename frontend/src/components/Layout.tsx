@@ -10,7 +10,10 @@ import {
   Menu,
   X,
   ShieldCheck,
-  TriangleAlert
+  TriangleAlert,
+  ChevronDown,
+  ChevronRight,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,24 +21,24 @@ export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [abuseMenuOpen, setAbuseMenuOpen] = useState(
+    location.pathname.startsWith('/abuse-safety')
+  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [showSignOutModal, setShowSignOutModal] = useState(false); // Controls modal visibility
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
   const { user, logout } = useAuth();
 
-  const navigation = [
+  const mainNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Food Listings', href: '/food-listings', icon: ListOrdered },
     { name: 'User Activity', href: '/user-activity', icon: Users },
     { name: 'Location Activity', href: '/location-activity', icon: MapPin },
     { name: 'Generate Report', href: '/reports', icon: FileText },
-    { name: 'Abuse & Safety', href: '/abuse-safety', icon: TriangleAlert },
   ];
 
-  if (user?.role === 'super_admin') {
-    navigation.push({ name: 'Admin Approval', href: '/admin-approval', icon: ShieldCheck });
-  }
-
   const isActive = (path: string) => location.pathname === path;
+
+  const isAbuseSection = location.pathname.startsWith('/abuse-safety');
 
   // Actual sign out execution triggered from inside the modal
   const confirmSignOut = async () => {
@@ -55,7 +58,7 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9FBF9]">
+    <div className="min-h-screen">
       {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -66,12 +69,12 @@ export function Layout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`admin-sidebar fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="px-6 py-6 border-b border-gray-200">
+          <div className="admin-sidebar-brand px-6 py-6">
             <div className="flex items-center gap-3">
               <img
                 src="/zero_hunger_um_logo.png"
@@ -79,46 +82,133 @@ export function Layout() {
                 className="w-10 h-auto mx-auto mb-4"
               />
               <div>
-                <h1 className="text-xl font-semibold text-[#212121]">Zero Hunger UM</h1>
-                <p className="text-xs text-[#9E9E9E]">Admin Dashboard</p>
+                <h1 className="admin-sidebar-brand-title text-xl font-semibold">Zero Hunger UM</h1>
+                <p className="admin-sidebar-brand-subtitle text-xs">Admin Dashboard</p>
               </div>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive(item.href)
-                    ? 'bg-[#E8F5E9] text-[#2E7D32]'
-                    : 'text-[#9E9E9E] hover:bg-[#F5FAF5] hover:text-[#2E7D32]'
+
+          <nav className="flex-1 px-4 py-6 overflow-y-auto">
+
+            {/* Main Menu */}
+            <div className="mb-7">
+              <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                Main Menu
+              </p>
+
+              <div className="space-y-1.5">
+                {mainNavigation.map((item) => {
+                  const Icon = item.icon;
+
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`admin-sidebar-nav-item ${isActive(item.href) ? 'active' : ''
+                        }`}
+                    >
+                      <Icon size={19} className="admin-sidebar-nav-icon" />
+                      <span>{item.name}</span>
+
+                      {isActive(item.href) && (
+                        <span className="admin-sidebar-active-indicator" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Safety & Moderation */}
+            <div className="mb-7">
+              <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                Safety & Moderation
+              </p>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setAbuseMenuOpen(!abuseMenuOpen)}
+                  className={`admin-sidebar-nav-item w-full ${isAbuseSection ? 'active' : ''
                     }`}
                 >
-                  <Icon size={20} />
-                  <span>{item.name}</span>
+                  <TriangleAlert size={19} className="admin-sidebar-nav-icon" />
+                  <span className="flex-1 text-left">Abuse & Safety</span>
+
+                  {abuseMenuOpen ? (
+                    <ChevronDown size={16} />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
+                </button>
+
+                {abuseMenuOpen && (
+                  <div className="ml-5 space-y-1.5 border-l border-white/15 pl-3 py-1">
+                    <Link
+                      to="/abuse-safety"
+                      onClick={() => setSidebarOpen(false)}
+                      className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety' ? 'active' : ''
+                        }`}
+                    >
+                      <ListOrdered size={17} className="admin-sidebar-nav-icon" />
+                      <span>Ticket Queue</span>
+                    </Link>
+
+                    <Link
+                      to="/abuse-safety/ai-config"
+                      onClick={() => setSidebarOpen(false)}
+                      className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety/ai-config' ? 'active' : ''
+                        }`}
+                    >
+                      <Settings size={17} className="admin-sidebar-nav-icon" />
+                      <span>AI Configuration</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Administration */}
+            {user?.role === 'super_admin' && (
+              <div>
+                <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                  Administration
+                </p>
+
+                <Link
+                  to="/admin-approval"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`admin-sidebar-nav-item ${isActive('/admin-approval') ? 'active' : ''
+                    }`}
+                >
+                  <ShieldCheck size={19} className="admin-sidebar-nav-icon" />
+                  <span>Admin Approval</span>
+
+                  {isActive('/admin-approval') && (
+                    <span className="admin-sidebar-active-indicator" />
+                  )}
                 </Link>
-              );
-            })}
+              </div>
+            )}
+
           </nav>
 
           {/* User section */}
-          <div className="p-4 border-t border-gray-200">
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                <span className="text-[#2E7D32] font-semibold">
+          <div className="admin-sidebar-user-section p-4">
+            <div className="admin-sidebar-user-card">
+              <div className="admin-sidebar-avatar">
+                <span>
                   {user?.name ? user.name[0].toUpperCase() : 'A'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#212121] truncate">{user?.name || 'Admin User'}</p>
-                <p className="text-xs text-[#9E9E9E] truncate">{user?.email || 'admin@um.edu.my'}</p>
+                <p className="admin-sidebar-user-name text-sm font-medium truncate">{user?.name || 'Admin User'}</p>
+                <p className="admin-sidebar-user-email text-xs truncate">{user?.email || 'admin@um.edu.my'}</p>
                 {user?.role === 'super_admin' && (
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-[#E8F5E9] text-[#2E7D32] text-[10px] font-bold rounded-full uppercase tracking-wider">
+                  <span className="admin-sidebar-role-badge">
                     Super Admin
                   </span>
                 )}
@@ -128,7 +218,7 @@ export function Layout() {
             {/* Triggers confirmation modal instead of immediate signout */}
             <button
               onClick={() => setShowSignOutModal(true)}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[#9E9E9E] hover:bg-[#F5FAF5] hover:text-[#D32F2F] transition-colors mt-2 text-left"
+              className="admin-sidebar-signout"
             >
               <LogOut size={20} />
               <span>Sign Out</span>
@@ -138,7 +228,7 @@ export function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="lg:ml-64">
+      <main className="admin-content-area lg:ml-64">
         <div className="px-4 py-8 lg:px-8">
           <Outlet />
         </div>
