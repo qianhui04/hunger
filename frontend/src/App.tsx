@@ -15,6 +15,7 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { ResetPassword } from './pages/ResetPassword';
 import { FoodListingDetails } from './pages/FoodListingDetails';
+import { FoodListingClaims } from './pages/FoodListingClaims';
 import { UserActivityDetails } from './pages/UserActivityDetails';
 import { Loader2 } from 'lucide-react';
 
@@ -106,6 +107,11 @@ export default function App() {
               <Route
                 path="food-listings/:id"
                 element={<FoodListingDetails />}
+              />
+
+              <Route
+                path="food-listings/:id/claims"
+                element={<FoodListingClaims />}
               />
 
               <Route

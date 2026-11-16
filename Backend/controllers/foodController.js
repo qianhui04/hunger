@@ -123,6 +123,27 @@ exports.suspendListing = async (req, res) => {
     }
 };
 
+exports.getClaimsByListingId = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const claims =
+            await FoodListingModel.getClaimsByListingId(id);
+
+        return res.status(200).json({
+            claims,
+            totalClaims: claims.length
+        });
+
+    } catch (error) {
+        console.error("Error fetching listing claims:", error);
+
+        return res.status(500).json({
+            error: "Failed to retrieve listing claims."
+        });
+    }
+};
+
 exports.deleteListing = async (req, res) => {
     try {
         const { id } = req.params;

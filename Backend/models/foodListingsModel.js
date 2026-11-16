@@ -92,7 +92,31 @@ class FoodListingModel {
         return data;
     }
 
+    static async getClaimsByListingId(listingId) {
+        const { data, error } = await supabase
+            .from('claims')
+            .select(`
+            id,
+            user_uid,
+            claimed_at,
+            checked_in,
+            checkin_at,
+            status,
+            users (
+                uid,
+                name,
+                email,
+                student_id,
+                phone_number
+            )
+        `)
+            .eq('listing_id', listingId)
+            .order('claimed_at', { ascending: false });
 
+        if (error) throw error;
+
+        return data || [];
+    }
 
     static async delete(id) {
         const { error } = await supabase

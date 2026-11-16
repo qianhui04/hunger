@@ -5,6 +5,7 @@ const foodController = require('../controllers/foodController');
 
 router.get('/food-listings', foodController.getAllListings);
 router.get('/food-listings/:id', foodController.getListingById);
+router.get('/food-listings/:id/claims', foodController.getClaimsByListingId);
 router.patch('/food-listings/:id/status', foodController.updateStatus);
 router.patch('/food-listings/:id/suspend', foodController.suspendListing);
 router.delete('/food-listings/:id', foodController.deleteListing);
