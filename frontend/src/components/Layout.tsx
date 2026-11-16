@@ -93,90 +93,76 @@ export function Layout() {
           <nav className="flex-1 px-4 py-6 overflow-y-auto">
 
             {/* Main Menu */}
-            <div className="mb-7">
-              <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                Main Menu
-              </p>
+            <div className="space-y-1.5">
+              {mainNavigation.map((item) => {
+                const Icon = item.icon;
 
-              <div className="space-y-1.5">
-                {mainNavigation.map((item) => {
-                  const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`admin-sidebar-nav-item ${isActive(item.href) ? 'active' : ''
+                      }`}
+                  >
+                    <Icon size={19} className="admin-sidebar-nav-icon" />
+                    <span>{item.name}</span>
 
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`admin-sidebar-nav-item ${isActive(item.href) ? 'active' : ''
-                        }`}
-                    >
-                      <Icon size={19} className="admin-sidebar-nav-icon" />
-                      <span>{item.name}</span>
-
-                      {isActive(item.href) && (
-                        <span className="admin-sidebar-active-indicator" />
-                      )}
-                    </Link>
-                  );
-                })}
-              </div>
+                    {isActive(item.href) && (
+                      <span className="admin-sidebar-active-indicator" />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
 
             {/* Safety & Moderation */}
-            <div className="mb-7">
-              <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                Safety & Moderation
-              </p>
 
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setAbuseMenuOpen(!abuseMenuOpen)}
-                  className={`admin-sidebar-nav-item w-full ${isAbuseSection ? 'active' : ''
-                    }`}
-                >
-                  <TriangleAlert size={19} className="admin-sidebar-nav-icon" />
-                  <span className="flex-1 text-left">Abuse & Safety</span>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setAbuseMenuOpen(!abuseMenuOpen)}
+                className={`admin-sidebar-nav-item w-full ${isAbuseSection ? 'active' : ''
+                  }`}
+              >
+                <TriangleAlert size={19} className="admin-sidebar-nav-icon" />
+                <span className="flex-1 text-left">Abuse & Safety</span>
 
-                  {abuseMenuOpen ? (
-                    <ChevronDown size={16} />
-                  ) : (
-                    <ChevronRight size={16} />
-                  )}
-                </button>
-
-                {abuseMenuOpen && (
-                  <div className="ml-5 space-y-1.5 border-l border-white/15 pl-3 py-1">
-                    <Link
-                      to="/abuse-safety"
-                      onClick={() => setSidebarOpen(false)}
-                      className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety' ? 'active' : ''
-                        }`}
-                    >
-                      <ListOrdered size={17} className="admin-sidebar-nav-icon" />
-                      <span>Ticket Queue</span>
-                    </Link>
-
-                    <Link
-                      to="/abuse-safety/ai-config"
-                      onClick={() => setSidebarOpen(false)}
-                      className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety/ai-config' ? 'active' : ''
-                        }`}
-                    >
-                      <Settings size={17} className="admin-sidebar-nav-icon" />
-                      <span>AI Configuration</span>
-                    </Link>
-                  </div>
+                {abuseMenuOpen ? (
+                  <ChevronDown size={16} />
+                ) : (
+                  <ChevronRight size={16} />
                 )}
-              </div>
+              </button>
+
+              {abuseMenuOpen && (
+                <div className="ml-5 space-y-1.5 border-l border-white/15 pl-3 py-1">
+                  <Link
+                    to="/abuse-safety"
+                    onClick={() => setSidebarOpen(false)}
+                    className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety' ? 'active' : ''
+                      }`}
+                  >
+                    <ListOrdered size={17} className="admin-sidebar-nav-icon" />
+                    <span>Ticket Queue</span>
+                  </Link>
+
+                  <Link
+                    to="/abuse-safety/ai-config"
+                    onClick={() => setSidebarOpen(false)}
+                    className={`admin-sidebar-nav-item text-sm ${location.pathname === '/abuse-safety/ai-config' ? 'active' : ''
+                      }`}
+                  >
+                    <Settings size={17} className="admin-sidebar-nav-icon" />
+                    <span>AI Configuration</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Administration */}
             {user?.role === 'super_admin' && (
               <div>
-                <p className="admin-sidebar-section-label px-4 mb-3 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                  Administration
-                </p>
 
                 <Link
                   to="/admin-approval"
