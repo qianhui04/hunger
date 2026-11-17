@@ -2,9 +2,6 @@
 const supabase = require('../config/supabase'); // Your initialized Supabase configuration
 
 class DashboardModel {
-    /**
-     * Fetches raw active listings along with specific checked-in claims profiles
-     */
     static async getDashboardData() {
 
         // 1. Food listing + checked-in claims
@@ -44,7 +41,21 @@ class DashboardModel {
             throw new Error(usersError.message);
         }
 
-        return { listings: listings || [], users: users || [] };
+
+        const { count: violatedListings, error: violatedError } = await supabase
+            .from('food_listings')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'suspended');
+
+        if (violatedError) {
+            throw new Error(violatedError.message);
+        }
+
+        return {
+            listings: listings || [],
+            users: users || [],
+            violatedListings: violatedListings || 0
+        };
     }
 }
 

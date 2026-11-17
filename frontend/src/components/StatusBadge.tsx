@@ -3,7 +3,7 @@ import { Badge } from './ui/badge';
 export type StatusVariant =
     | 'available'
     | 'not_available'
-    | 'inappropriate'
+    | 'suspended'
     | 'approved'
     | 'pending'
     | 'rejected'
@@ -35,8 +35,8 @@ const statusStyles: Record<StatusVariant, string> = {
     inactive:
         'border-transparent bg-[var(--color-status-neutral-bg)] text-[var(--color-status-neutral-text)]',
 
-    inappropriate:
-        'border-transparent bg-[var(--color-status-danger-bg)] text-[var(--color-status-danger-text)]',
+    suspended:
+        'border-transparent bg-[var(--color-status-danger-bg)] text-[#C62828]',
 
     rejected:
         'border-transparent bg-[var(--color-status-danger-bg)] text-[var(--color-status-danger-text)]',

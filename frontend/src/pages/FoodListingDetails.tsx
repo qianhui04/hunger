@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import {
     ArrowLeft, MapPin, ExternalLink, Calendar, Clock, Users, Pencil, Ban, Flag, Loader2, Utensils, Image as ImageIcon, UserRound, Mail, Phone, GraduationCap, ShieldCheck, CalendarPlus, FileText,
-    IdCard,
+    IdCard, Lock
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { formatDate, formatDateTime, formatTime } from '../utils/dateFormatter';
@@ -184,6 +184,10 @@ export function FoodListingDetails() {
                 throw new Error(result.error || 'Failed to suspend listing.');
             }
 
+            setListing(prev =>
+                prev ? { ...prev, status: 'suspended' } : prev
+            );
+
             alert('Food listing suspended successfully.');
 
         } catch (error: any) {
@@ -251,7 +255,7 @@ export function FoodListingDetails() {
                         </p>
                     </div>
 
-                    <button
+                    {/* <button
                         onClick={() => {
                             // Connect this to your Edit Listing page or modal later.
                             window.alert('Connect this button to your Edit Listing form.');
@@ -260,7 +264,7 @@ export function FoodListingDetails() {
                     >
                         <Pencil size={16} />
                         Edit Listing
-                    </button>
+                    </button> */}
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -493,7 +497,6 @@ export function FoodListingDetails() {
                                 <Button
                                     variant='primary'
                                     onClick={() => {
-                                        // Replace with food claim listing.
                                         navigate(`/food-listings/${listing.id}/claims`);
                                     }}
                                 // className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
@@ -518,14 +521,21 @@ export function FoodListingDetails() {
                                 <Button
                                     onClick={handleSuspendListing}
                                     disabled={listing.status === 'suspended' || suspending}
-                                    variant="destructive"
+                                    variant={listing.status === 'suspended' ? 'secondary' : 'destructive'}
                                 >
                                     {suspending ? (
                                         <Loader2 size={17} className="animate-spin" />
+                                    ) : listing.status === 'suspended' ? (
+                                        <Lock size={17} />
                                     ) : (
-                                        <Ban size={17} />
+                                        <Lock size={17} />
                                     )}
-                                    {suspending ? 'Suspending...' : 'Suspend Listing'}
+
+                                    {suspending
+                                        ? 'Suspending...'
+                                        : listing.status === 'suspended'
+                                            ? 'Permanently Suspended'
+                                            : 'Suspend Listing'}
                                 </Button>
                             </div>
 

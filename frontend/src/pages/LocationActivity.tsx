@@ -25,9 +25,10 @@ interface LocationItem {
   pax_collected: number;
   reservation_rate: number;
   fulfillment_rate: number;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   color: string;
+  status: string;
 }
 
 interface MetricSet {
@@ -47,16 +48,41 @@ function MapResizeTrigger() {
   return null;
 }
 
-export function AutoFitBounds({ locations, fallbackCenter }: { locations: LocationItem[], fallbackCenter: [number, number] }) {
+export function AutoFitBounds({
+  locations,
+  fallbackCenter,
+}: {
+  locations: LocationItem[];
+  fallbackCenter: [number, number];
+}) {
   const map = useMap();
+
   useEffect(() => {
-    if (!locations || locations.length === 0) {
+    const validLocations = locations.filter(
+      (loc) =>
+        loc.lat !== null &&
+        loc.lng !== null &&
+        Number.isFinite(loc.lat) &&
+        Number.isFinite(loc.lng)
+    );
+
+    if (validLocations.length === 0) {
       map.setView(fallbackCenter, 14);
       return;
     }
-    const bounds = L.latLngBounds(locations.map(loc => [loc.lat, loc.lng]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16, animate: true, duration: 1.0 });
+
+    const bounds = L.latLngBounds(
+      validLocations.map((loc) => [loc.lat!, loc.lng!] as [number, number])
+    );
+
+    map.fitBounds(bounds, {
+      padding: [40, 40],
+      maxZoom: 16,
+      animate: true,
+      duration: 1.0,
+    });
   }, [locations, map, fallbackCenter]);
+
   return null;
 }
 
@@ -86,10 +112,10 @@ export function LocationActivity() {
         const payload = await response.json();
         setLocationData(payload.locations);
         setMetrics({
-          availableEvent: payload.metrics?.availableEvent.length || 0,
+          availableEvent: payload.metrics?.availableEvent || 0,
           totalPaxDistributed: payload.metrics?.totalPaxDistributed || 0,
-          avgFulfillmentRate: payload.metrics?.avgFulfillmentRate || 0,
-          avgReservationRate: payload.metrics?.avgReservationRate || 0,
+          avgFulfillmentRate: Number(payload.metrics?.avgFulfillmentRate) || 0,
+          avgReservationRate: Number(payload.metrics?.avgReservationRate) || 0,
         });
 
         // const queryParams = new URLSearchParams({
@@ -134,8 +160,33 @@ export function LocationActivity() {
     return matchesFulfillment && matchesSearch;
   });
 
+  const mapLocations = filteredLocations.filter(
+    (loc) =>
+      loc.lat !== null &&
+      loc.lng !== null &&
+      Number.isFinite(loc.lat) &&
+      Number.isFinite(loc.lng)
+  );
+
+  const getMarkerColor = (fulfillmentRate: number) => {
+    if (fulfillmentRate >= 70) return '#16A34A'; // High
+    if (fulfillmentRate >= 40) return '#EAB308'; // Medium
+    return '#DC2626'; // Low
+  };
+
   const fallbackMapFocus = useMemo((): [number, number] => {
-    if (locationData.length > 0) return [locationData[0].lat, locationData[0].lng];
+    const firstValidLocation = locationData.find(
+      (loc) =>
+        loc.lat !== null &&
+        loc.lng !== null &&
+        Number.isFinite(loc.lat) &&
+        Number.isFinite(loc.lng)
+    );
+
+    if (firstValidLocation) {
+      return [firstValidLocation.lat!, firstValidLocation.lng!];
+    }
+
     return defaultMapCenter;
   }, [locationData]);
 
@@ -157,13 +208,12 @@ export function LocationActivity() {
         <p className="text-[#9E9E9E] mt-1">Real-time event distribution and attendance tracking overview</p>
       </div>
 
-      {/* UPGRADED: Scoreboard Cards showing separate tracking metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { title: 'Active Listings', value: metrics.availableEvent, icon: MapPin, color: 'text-[#2E7D32]', bg: 'bg-[#E8F5E9]' },
           { title: 'Avg. Reservation Rate', value: `${metrics.avgReservationRate}%`, icon: BookmarkCheck, color: 'text-[#1565C0]', bg: 'bg-[#E3F2FD]' },
           { title: 'Avg. Pickup Rate', value: `${metrics.avgFulfillmentRate}%`, icon: Calendar, color: 'text-[#66BB6A]', bg: 'bg-[#E8F5E9]' },
-          { title: 'Total Volume Distributed', value: (metrics.totalPaxDistributed || 0).toLocaleString(), icon: Users, color: 'text-[#338A3E]', bg: 'bg-[#E8F5E9]' },
+          { title: 'Total Pax Distributed', value: (metrics.totalPaxDistributed || 0).toLocaleString(), icon: Users, color: 'text-[#338A3E]', bg: 'bg-[#E8F5E9]' },
         ].map((card, i) => (
           <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
             <div className="truncate pr-2 w-full">
@@ -229,20 +279,24 @@ export function LocationActivity() {
               <MapResizeTrigger />
               <AutoFitBounds locations={filteredLocations} fallbackCenter={defaultMapCenter} />
 
-              {filteredLocations.map((loc) => {
+              {mapLocations.map((loc) => {
+                if (loc.lat === null || loc.lng === null) return null;
+
                 const LeafletTooltip = Tooltip as any;
+                const markerColor = getMarkerColor(loc.fulfillment_rate);
+
                 return (
                   <React.Fragment key={loc.id}>
                     <CircleMarker
                       center={[loc.lat, loc.lng]}
-                      pathOptions={{ color: loc.color, fillColor: loc.color, fillOpacity: 0.15, weight: 1 }}
+                      pathOptions={{ color: markerColor, fillColor: markerColor, fillOpacity: 0.15, weight: 1 }}
                       radius={Math.min(35, Math.max(15, loc.pax_total / 2))}
                     />
                     <Marker position={[loc.lat, loc.lng]}>
                       <LeafletTooltip sticky={true} direction="top" className="!p-0 !border-none !bg-transparent !shadow-none">
                         <div className="bg-white rounded-xl shadow-xl border border-gray-100 p-4 min-w-[240px] font-sans pointer-events-none">
                           <div className="flex items-center gap-1.5 border-b border-gray-50 pb-2 mb-2">
-                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: loc.color }} />
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: markerColor }} />
                             <p className="font-bold text-gray-900 text-sm tracking-tight truncate max-w-[180px]">{loc.event_name}</p>
                           </div>
                           <div className="space-y-1.5 text-xs text-gray-600">
@@ -268,65 +322,109 @@ export function LocationActivity() {
             <thead>
               <tr className="bg-gray-50/70 border-b border-gray-100">
                 <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Event Information</th>
-                <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Geographic Address</th>
+                <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Distribution Location</th>
                 <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Total Pax</th>
+                <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Remaining Pax</th>
                 <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Reservation Rate</th>
                 <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Fulfillment Rate</th>
-                <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Remaining Pax</th>
-                <th className="py-4 px-6 text-xs font-semibold text-[#9E9E9E] uppercase tracking-wider">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredLocations.length > 0 ? (
                 filteredLocations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-[#F9FBF9] transition-colors duration-150">
-                    {/* Event Info */}
-                    <td className="py-4 px-6">
-                      <span className="text-sm font-semibold text-[#212121]">{loc.event_name}</span>
-                    </td>
+                    {/* Event Information */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col items-start gap-2">
+                        <span className="text-sm font-semibold text-gray-800 leading-5">
+                          {loc.event_name}
+                        </span>
 
-                    {/* Location Address */}
-                    <td className="py-4 px-6 text-sm font-medium text-gray-600">{loc.location}</td>
-
-                    {/* Total Prepared Stock */}
-                    <td className="py-4 px-6 text-sm font-bold text-gray-900">{loc.pax_total} Pax</td>
-
-                    {/* Claimed App Reservations (Headcount + small percentage support badge) */}
-                    <td className="py-4 px-6">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold text-blue-700">{loc.pax_reserved} Person/s</span>
-                        <span className="text-xs text-blue-400 font-medium">{loc.reservation_rate}% of total stock</span>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${loc.status === 'available'
+                            ? 'bg-green-50 text-green-700'
+                            : loc.status === 'not_available'
+                              ? 'bg-gray-100 text-gray-600'
+                              : loc.status === 'suspended'
+                                ? 'bg-red-50 text-red-700'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}
+                        >
+                          {loc.status === 'not_available'
+                            ? 'Not Available'
+                            : loc.status === 'suspended'
+                              ? 'Suspended'
+                              : loc.status === 'available'
+                                ? 'Available'
+                                : loc.status}
+                        </span>
                       </div>
                     </td>
 
-                    {/* Collected Handovers (Headcount + visual progress tracking bar) */}
-                    <td className="py-4 px-6">
-                      <div className="flex flex-col gap-1 min-w-[140px]">
-                        <span className="text-sm font-semibold text-green-700">{loc.pax_collected} Checked In</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-500"
-                              style={{ width: `${loc.fulfillment_rate}%`, backgroundColor: loc.color }}
-                            />
-                          </div>
-                          <span className="text-xs font-medium text-gray-500">{loc.fulfillment_rate}%</span>
+                    {/* Distribution Location */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-2">
+                        <span className="text-sm font-medium text-gray-700 leading-5">
+                          {loc.location}
+                        </span>
+
+                        <span className="text-xs text-gray-400 font-medium tabular-nums">
+                          {loc.lat != null && loc.lng != null
+                            ? `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`
+                            : 'Coordinates unavailable'}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Total Pax */}
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-semibold text-gray-800 tabular-nums">
+                        {loc.pax_total} Pax
+                      </span>
+                    </td>
+
+
+                    {/* Remaining Pax */}
+                    <td className="px-6 py-4">
+                      <span className="text-sm font-semibold text-gray-800 tabular-nums">
+                        {loc.pax_remaining} Pax
+                      </span>
+                    </td>
+
+                    {/* Reservation Rate */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-semibold text-blue-700 tabular-nums">
+                          {loc.pax_reserved} Claims
+                        </span>
+                        <span className="text-xs text-blue-400 font-medium tabular-nums">
+                          {loc.reservation_rate}% reserved
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Fulfillment Rate */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-2 min-w-[140px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-green-700 tabular-nums">
+                            {loc.pax_collected} Checked In
+                          </span>
+                          <span className="text-xs font-semibold text-green-500 tabular-nums">
+                            {loc.fulfillment_rate}%
+                          </span>
+                        </div>
+
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(Math.max(loc.fulfillment_rate, 0), 100)}%`,
+                              backgroundColor: getMarkerColor(loc.fulfillment_rate),
+                            }}
+                          />
                         </div>
                       </div>
-                    </td>
-
-                    {/* Remaining Unclaimed Stock */}
-                    <td className="py-4 px-6 text-sm font-medium">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${loc.pax_remaining === 0 ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-700'}`}>
-                        {loc.pax_remaining} Available
-                      </span>
-                    </td>
-
-                    {/* Overall Yield Badge */}
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${loc.fulfillment_rate >= 70 ? 'bg-[#E8F5E9] text-[#2E7D32]' : 'bg-[#FFEBEE] text-[#D32F2F]'}`}>
-                        {loc.fulfillment_rate >= 70 ? 'High Fulfillment' : 'Low Fulfillment'}
-                      </span>
                     </td>
                   </tr>
                 ))

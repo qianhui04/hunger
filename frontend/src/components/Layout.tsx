@@ -117,7 +117,6 @@ export function Layout() {
             </div>
 
             {/* Safety & Moderation */}
-
             <div className="space-y-2">
               <button
                 type="button"

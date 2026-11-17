@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { StatCard } from '../components/StatCard';
 import { Package, Users, TrendingUp, Calendar, AlertTriangle, RefreshCw, User, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatTime } from '@/utils/dateFormatter';
 import CardContainer from '@/components/CardContainer';
 
@@ -11,7 +11,7 @@ const COLORS = ['#2E7D32', '#66BB6A', '#338A3E', '#98EE99', '#4CAF50'];
 const statusStyles = {
   available: { bg: '#E8F5E9', text: '#2E7D32', label: 'Available' },
   not_available: { bg: '#F5F5F5', text: '#9E9E9E', label: 'Not Available' },
-  inappropraite: { bg: '#FFEBEE', text: '#D32F2F', label: 'Banned' }
+  suspended: { bg: '#FFEBEE', text: '#C62828', label: 'Suspended' }
 };
 
 interface HeatmapRow {
@@ -41,6 +41,7 @@ export function Dashboard() {
     available_pax: 0,
     expiring_soon: 0,
     expiring_soon_listings: [],
+    violated_listings: 0,
   });
 
   const [chartData, setChartData] = useState<{
@@ -60,6 +61,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const fetchDashboardMetrics = async () => {
     setLoading(true);
@@ -84,7 +86,7 @@ export function Dashboard() {
 
   useEffect(() => {
     fetchDashboardMetrics();
-  }, []);
+  }, [location.key]);
 
   return (
     <div className="min-h-screen bg-gray-50/70">
@@ -123,34 +125,41 @@ export function Dashboard() {
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
           <StatCard
             title="Total Food Listings"
             value={loading ? "..." : error ? "—" : stats.total_listings.toString()}
             icon={Package}
-            trend={{ value: 'Total entries in system', isPositive: true }}
+            trend='All food listings created'
             color="#2E7D32"
           />
           <StatCard
-            title="Pax Distributed"
+            title="Total Pax Distributed"
             value={loading ? "..." : error ? "—" : stats.pax_distributed.toLocaleString()}
             icon={User}
-            trend={{ value: 'Portions distributed', isPositive: true }}
+            trend='Successful food pickups'
             color="#2E7D32"
           />
           <StatCard
             title="Total Users"
             value={loading ? "..." : error ? "—" : stats.total_users.toString()}
             icon={Users}
-            trend={{ value: 'Providers & Receivers', isPositive: true }}
+            trend='Registered providers and receivers'
             color="#2E7D32"
           />
           <StatCard
             title="Food Saved"
             value={loading ? "..." : error ? "—" : `${stats.food_saved.toLocaleString()} kg`}
             icon={TrendingUp}
-            trend={{ value: 'Total weight rescued', isPositive: true }}
+            trend='Total weight rescued'
             color="#2E7D32"
+          />
+          <StatCard
+            title="Violated Listings"
+            value={loading ? "..." : error ? "—" : stats.violated_listings.toString()}
+            icon={AlertTriangle}
+            trend='Listings suspended for violations'
+            color="#C62828"
           />
         </div>
 
@@ -366,7 +375,11 @@ export function Dashboard() {
 
                         return (
                           <tr key={index} className="hover:bg-gray-50/80 transition-colors cursor-pointer hover:bg-gray-50 transition-colors"
-                            onClick={() => { navigate(`/food-listings/${listing.id}`); }}>
+                            onClick={() => {
+                              navigate(`/food-listings/${listing.id}`, {
+                                state: { from: '/dashboard' }
+                              });
+                            }}>
                             <td title={listing.event_name} className="whitespace-nowrap px-5 py-4 text-sm text-gray-700 max-w-[140px] truncate">{listing.event_name}</td>
                             <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{listing.food_type || 'Others'}</td>
                             <td className="whitespace-nowrap px-5 py-4 text-sm text-gray-700">{listing.pax_total} portions</td>

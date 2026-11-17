@@ -6,18 +6,12 @@ class LocationModel {
     static async getAllLocations() {
         const { data, error } = await supabase
             .from('location_operational_metrics_table')
-            .select('id, event_name, location, pax_total, pax_remaining, status, lat, lng, pax_reserved, pax_collected, reservation_rate, fulfillment_rate')
-            .not('lat', 'is', null)
-            .not('lng', 'is', null);
+            .select('id, event_name, location, pax_total, pax_remaining, status, lat, lng, pax_reserved, pax_collected, reservation_rate, fulfillment_rate');
 
         if (error) throw new Error(error.message);
         return data || [];
     }
-    /**
-     * Queries locations directly from Supabase using filter metrics
-     * @param {string} search - Text to filter event names or locations
-     * @param {string} filter - 'high', 'low', or 'all' fulfillment flag
-     */
+
     static async getOperationalMetrics({ search, filter }) {
         let query = supabase
             .from('location_operational_metrics_table')

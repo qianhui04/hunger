@@ -6,8 +6,19 @@ exports.getLocationAnalytics = async (req, res) => {
         const locations = await LocationModel.getAllLocations();
 
         const availableEvent = locations.filter(event => event.status === 'available')
-        const avgReservationRate = (locations.reduce((sum, event) => (sum + event.reservation_rate), 0) / locations.length).toFixed(2)
-        const avgFulfillmentRate = (locations.reduce((sum, event) => (sum + event.fulfillment_rate), 0) / locations.length).toFixed(2)
+        const avgReservationRate = locations.length
+            ? (
+                locations.reduce((sum, event) => sum + (event.reservation_rate || 0), 0)
+                / locations.length
+            ).toFixed(2)
+            : "0";
+
+        const avgFulfillmentRate = locations.length
+            ? (
+                locations.reduce((sum, event) => sum + (event.fulfillment_rate || 0), 0)
+                / locations.length
+            ).toFixed(2)
+            : "0";
         const totalPaxDistributed = locations.reduce((sum, event) => (sum + event.pax_collected), 0)
 
         return res.status(200).json({

@@ -239,7 +239,7 @@ describe("Dashboard - FR-14 Today's Active Listings", () => {
 
 // FR-15: Listing Table Information
 describe('Dashboard - FR-15 Listing Table Information', () => {
-    it('UT-02-012: displays the required listing table columns and pickup time', async () => {
+    it('UT-02-012: displays the required listing table columns and pickup start', async () => {
         render(<Dashboard />);
 
         await waitFor(() => {

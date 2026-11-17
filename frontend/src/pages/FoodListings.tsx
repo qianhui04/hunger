@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Trash2, Eye, AlertCircle } from 'lucide-react';
+import { Search, Filter, Trash2, Eye, AlertCircle, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatDateTime } from '../utils/dateFormatter';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-type StatusKey = 'available' | 'not_available' | 'inappropriate';
+type StatusKey = 'available' | 'not_available' | 'suspended';
 
 const statusStyles: Record<StatusKey, { bg: string; text: string; label: string }> = {
   available: { bg: '#E8F5E9', text: '#2E7D32', label: 'Available' },
   not_available: { bg: '#F5F5F5', text: '#9E9E9E', label: 'Unavailable' },
-  inappropriate: { bg: '#FFEBEE', text: '#D32F2F', label: 'Banned' },
+  suspended: { bg: '#FFEBEE', text: '#C62828', label: 'Suspended' },
 };
 
 const fallbackStatusStyle = { bg: '#FFF3E0', text: '#E65100', label: 'Unknown' };
@@ -111,7 +111,7 @@ export function FoodListings() {
     all: listings.length,
     available: listings.filter(l => l.status === 'available').length,
     'not_available': listings.filter(l => l.status === 'not_available').length,
-    'inappropriate': listings.filter(l => l.status === 'inappropriate').length,
+    'suspended': listings.filter(l => l.status === 'suspended').length,
   };
 
   const filteredListings = listings.filter((listing) => {
@@ -166,7 +166,7 @@ export function FoodListings() {
               <option value="all">All Status ({statusCounts.all})</option>
               <option value="available">Available ({statusCounts.available})</option>
               <option value="not_available">Unavailable ({statusCounts.not_available})</option>
-              <option value="inappropriate">Inappropriate ({statusCounts.inappropriate})</option>
+              <option value="suspended">Suspended ({statusCounts.suspended})</option>
             </select>
           </div>
         </div>
@@ -192,7 +192,7 @@ export function FoodListings() {
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Remaining Pax</th>
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Status</th>
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Pickup Location</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Posted Time</th>
+                <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Pickup Start</th>
                 <th className="text-left py-4 px-6 text-sm font-medium text-[#9E9E9E]">Actions</th>
               </tr>
             </thead>
@@ -230,16 +230,34 @@ export function FoodListings() {
                       <td className="py-4 px-6 text-sm text-[#9E9E9E]">{formattedDateTime}</td>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          <button
-                            title={listing.status === 'not_available' ? 'Unhide' : 'Hide'}
-                            onClick={(event) => { event.stopPropagation(); handleHideListing(listing.id, listing.status, listing.pickup_end, listing.pax_remaining) }}
-                            className={`p-2 rounded-lg transition-colors ${listing.status === 'not_available'
-                              ? 'text-[#9E9E9E] bg-gray-100 hover:bg-gray-200'
-                              : 'text-[#2E7D32] hover:bg-[#E8F5E9]'
-                              }`}
-                          >
-                            <Eye size={18} />
-                          </button>
+                          {listing.status === 'suspended' ? (
+                            <button
+                              title="Suspended listing cannot be restored."
+                              disabled
+                              className="p-2 rounded-lg text-gray-400 bg-gray-100 cursor-not-allowed"
+                            >
+                              <Lock size={18} />
+                            </button>
+                          ) : (
+                            <button
+                              title={listing.status === 'not_available' ? 'Unhide' : 'Hide'}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleHideListing(
+                                  listing.id,
+                                  listing.status,
+                                  listing.pickup_end,
+                                  listing.pax_remaining
+                                );
+                              }}
+                              className={`p-2 rounded-lg transition-colors ${listing.status === 'not_available'
+                                ? 'text-[#9E9E9E] bg-gray-100 hover:bg-gray-200'
+                                : 'text-[#2E7D32] hover:bg-[#E8F5E9]'
+                                }`}
+                            >
+                              <Eye size={18} />
+                            </button>
+                          )}
 
                           <button
                             title='Delete Permanently'

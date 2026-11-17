@@ -9,12 +9,12 @@ const SUNDAY_FIRST_ORDER = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 exports.getMainOverviewMetrics = async (req, res) => {
     try {
         // 1. Invoke Model layer to execute database selection operation
-        const { listings, users } = await DashboardModel.getDashboardData();
+        const { listings, users, violatedListings } = await DashboardModel.getDashboardData();
 
         // Fallback initialization block if listings are blank
         if (listings.length === 0) {
             return res.status(200).json({
-                stats: { total_listings: 0, pax_distributed: 0, food_saved: 0, total_users: 0 },
+                stats: { total_listings: 0, pax_distributed: 0, food_saved: 0, total_users: 0, violated_listings: violatedListings },
                 chartData: { foodTypeDistribution: [], locationActivity: [], weeklyActivity: [] },
                 matrixData: SUNDAY_FIRST_ORDER.map(day => ({ day, '08:00': 0, '12:00': 0, '17:00': 0 })),
                 todayListings: []
@@ -151,7 +151,8 @@ exports.getMainOverviewMetrics = async (req, res) => {
                 active_listings: active_listings,
                 available_pax: available_pax,
                 expiring_soon: expiring_soon,
-                expiring_soon_listings: expiringSoonListings
+                expiring_soon_listings: expiringSoonListings,
+                violated_listings: violatedListings,
             },
             chartData: {
                 foodTypeDistribution: Object.entries(foodTypeCount).map(([name, value]) => ({ name, value })),
