@@ -430,7 +430,7 @@ export function LocationActivity() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-[#9E9E9E] text-sm font-medium">
+                  <td colSpan={6} className="py-12 text-center text-[#9E9E9E] text-sm font-medium">
                     No listings found. Try adjusting your search or filters.
                   </td>
                 </tr>

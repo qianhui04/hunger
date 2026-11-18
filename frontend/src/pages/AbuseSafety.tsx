@@ -370,24 +370,47 @@ export function AbuseSafety() {
     };
 
     // Content NLP Substring Highlight System (FR: Highlight Toxic Phrases Instantly)
-    const renderHighlightedContent = (content: string, phrases: string[]) => {
-        if (!phrases || phrases.length === 0) return <p className="text-[#212121]">{content}</p>;
-        const escaped = phrases.map(p => p.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
+    const renderHighlightedContent = (
+        content: string,
+        phrases: string[] | null
+    ) => {
+        const validPhrases = (phrases || [])
+            .map(p => p.trim())
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length);
+
+        if (!content) return null;
+
+        if (validPhrases.length === 0) {
+            return <span>{content}</span>;
+        }
+
+        const escaped = validPhrases.map(p =>
+            p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        );
+
         const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
-        const parts = content.split(regex);
 
         return (
-            <p className="text-sm leading-relaxed text-[#212121] font-medium">
-                {parts.map((part, i) =>
-                    regex.test(part) ? (
-                        <span key={i} className="bg-[#FFEBEE] text-[#C62828] border-b-2 border-[#C62828] font-semibold px-0.5 rounded-sm">
+            <>
+                {content.split(regex).map((part, i) => {
+                    const isFlagged = validPhrases.some(
+                        phrase => phrase.toLowerCase() === part.toLowerCase()
+                    );
+
+                    return isFlagged ? (
+                        <span
+                            key={i}
+                            className="bg-red-100 text-red-700 underline decoration-red-500 decoration-2 font-semibold px-0.5 rounded-sm"
+                            title="AI-flagged phrase"
+                        >
                             {part}
                         </span>
                     ) : (
                         <span key={i}>{part}</span>
-                    )
-                )}
-            </p>
+                    );
+                })}
+            </>
         );
     };
 
@@ -961,7 +984,12 @@ export function AbuseSafety() {
                                     </div>
 
                                     <p className="text-xs text-gray-500 mt-3 line-clamp-2">
-                                        {currentTicket.listing?.short_description || 'No description available.'}
+                                        {currentTicket.listing?.short_description
+                                            ? renderHighlightedContent(
+                                                currentTicket.listing.short_description,
+                                                currentTicket.ai_flagged_snippets
+                                            )
+                                            : 'No description available.'}
                                     </p>
 
                                     <p className="text-xs text-gray-400 mt-2">
@@ -1057,7 +1085,12 @@ export function AbuseSafety() {
                                                 </div>
 
                                                 <p className="text-sm text-gray-700 leading-relaxed">
-                                                    {report.notes || 'No additional notes provided.'}
+                                                    {report.notes
+                                                        ? renderHighlightedContent(
+                                                            report.notes,
+                                                            currentTicket.ai_flagged_snippets
+                                                        )
+                                                        : 'No additional notes provided.'}
                                                 </p>
                                             </div>
                                         ))
